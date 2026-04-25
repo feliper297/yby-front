@@ -9,8 +9,8 @@ const meta: Meta<typeof Tag> = {
     status: {
       control: 'select',
       options: [
-        'Aprovado', 'Pago', 'Ativo',
-        'Pendente', 'Suspenso', 'Antecipado',
+        'Aprovado', 'Pago', 'Liquidado', 'Quitado', 'Recuperado', 'Ativo',
+        'Pendente', 'Em aberto', 'A recuperar', 'Suspenso', 'Antecipado', 'Previsto',
         'Recusado', 'Chargeback', 'Erro',
         'Cancelado', 'Inativo',
         'Em análise', 'Info',
@@ -80,8 +80,8 @@ export const GaleriaComIcone: Story = {
   render: () => (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, padding: 20, background: '#fff' }}>
       {[
-        'Aprovado', 'Pago', 'Ativo',
-        'Pendente', 'Suspenso', 'Antecipado',
+        'Aprovado', 'Pago', 'Liquidado', 'Quitado', 'Recuperado', 'Ativo',
+        'Pendente', 'Em aberto', 'A recuperar', 'Suspenso', 'Antecipado', 'Previsto',
         'Recusado', 'Chargeback', 'Erro',
         'Cancelado', 'Inativo',
         'Em análise', 'Info',
@@ -97,8 +97,8 @@ export const GaleriaSemIcone: Story = {
   render: () => (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, padding: 20, background: '#fff' }}>
       {[
-        'Aprovado', 'Pago', 'Ativo',
-        'Pendente', 'Suspenso', 'Antecipado',
+        'Aprovado', 'Pago', 'Liquidado', 'Quitado', 'Recuperado', 'Ativo',
+        'Pendente', 'Em aberto', 'A recuperar', 'Suspenso', 'Antecipado', 'Previsto',
         'Recusado', 'Chargeback', 'Erro',
         'Cancelado', 'Inativo',
         'Em análise', 'Info',

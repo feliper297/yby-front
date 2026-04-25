@@ -3,7 +3,13 @@
 export type TagVariant =
   | 'Aprovado'
   | 'Pago'
+  | 'Liquidado'
+  | 'Quitado'
+  | 'Recuperado'
   | 'Pendente'
+  | 'Em aberto'
+  | 'A recuperar'
+  | 'Previsto'
   | 'Recusado'
   | 'Cancelado'
   | 'Em análise'
@@ -22,11 +28,16 @@ const STATUS_MAP: Record<string, { bg: string; color: string; border: string; ic
   Aprovado:     { bg: '#F6FFED', color: '#237804', border: '#D9F7BE', icon: 'check' },
   Pago:         { bg: '#F6FFED', color: '#237804', border: '#D9F7BE', icon: 'check' },
   Ativo:        { bg: '#F6FFED', color: '#237804', border: '#D9F7BE', icon: 'check' },
+  Liquidado:    { bg: '#F6FFED', color: '#237804', border: '#D9F7BE', icon: 'check' },
+  Quitado:      { bg: '#F6FFED', color: '#237804', border: '#D9F7BE', icon: 'check' },
+  Recuperado:   { bg: '#F6FFED', color: '#237804', border: '#D9F7BE', icon: 'check' },
 
   // Warning — Calendula Gold
-  Pendente:     { bg: '#FFFBE6', color: '#874D00', border: '#FFE58F', icon: 'info'  },
-  Suspenso:     { bg: '#FFFBE6', color: '#874D00', border: '#FFE58F', icon: 'alert' },
-  Antecipado:   { bg: '#FFF7E6', color: '#874D00', border: '#FFD591', icon: 'info'  },
+  Pendente:       { bg: '#FFFBE6', color: '#874D00', border: '#FFE58F', icon: 'info'  },
+  'Em aberto':    { bg: '#FFFBE6', color: '#874D00', border: '#FFE58F', icon: 'info'  },
+  'A recuperar':  { bg: '#FFFBE6', color: '#874D00', border: '#FFE58F', icon: 'info'  },
+  Suspenso:       { bg: '#FFFBE6', color: '#874D00', border: '#FFE58F', icon: 'alert' },
+  Antecipado:     { bg: '#FFF7E6', color: '#874D00', border: '#FFD591', icon: 'info'  },
 
   // Erro — Dust Red
   Recusado:     { bg: '#FFF1F0', color: '#820014', border: '#FFCCC7', icon: 'x'     },
@@ -40,6 +51,7 @@ const STATUS_MAP: Record<string, { bg: string; color: string; border: string; ic
   // Info — DayBreak Blue
   'Em análise': { bg: '#E6F7FF', color: '#003A8C', border: '#91D5FF', icon: 'info'  },
   Info:         { bg: '#E6F7FF', color: '#003A8C', border: '#91D5FF', icon: 'info'  },
+  Previsto:     { bg: '#E6F7FF', color: '#003A8C', border: '#91D5FF', icon: 'info'  },
 }
 
 // Circle-style icons — stroke="currentColor" herda a cor do texto do span pai

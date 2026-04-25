@@ -14,6 +14,16 @@ export type TableFilterConfig = {
   onChange: (values: string[]) => void
 }
 
+export type PeriodOption = { label: string; value: string }
+
+export const PERIOD_OPTIONS: PeriodOption[] = [
+  { label: 'Hoje',           value: 'hoje'    },
+  { label: 'Esta semana',    value: 'semana'  },
+  { label: 'Este mês',       value: 'mes'     },
+  { label: 'Mês anterior',   value: 'mes_ant' },
+  { label: 'Últimos 3 meses',value: '3meses'  },
+]
+
 type DataTableProps<T extends object> = {
   columns: ColumnType<T>[]
   dataSource: T[]
@@ -29,12 +39,86 @@ type DataTableProps<T extends object> = {
   onExport?: () => void
   onAdvancedFilter?: () => void
   toolbarExtra?: React.ReactNode
+  // Period filter
+  periodOptions?: PeriodOption[]
+  defaultPeriod?: string
+  periodValue?: string
+  onPeriodChange?: (value: string) => void
   // Table
   loading?: boolean
   pageSize?: number
   showPagination?: boolean
   expandable?: TableProps<T>['expandable']
   onRow?: TableProps<T>['onRow']
+}
+
+function PeriodPill({ options, value, onChange }: { options: PeriodOption[]; value: string; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const selected = options.find(o => o.value === value)
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          border: '1px solid #d9d9d9',
+          background: '#fff',
+          borderRadius: 2,
+          padding: '0 10px',
+          fontSize: 14,
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          color: 'rgba(0,0,0,0.85)',
+          height: 32,
+          fontFamily: 'Roboto, sans-serif',
+          whiteSpace: 'nowrap',
+        }}
+        onMouseEnter={e => (e.currentTarget as HTMLElement).style.borderColor = '#1890FF'}
+        onMouseLeave={e => (e.currentTarget as HTMLElement).style.borderColor = '#d9d9d9'}
+      >
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(0,0,0,0.45)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+          <rect x="3" y="4" width="18" height="18" rx="2" />
+          <line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" />
+          <line x1="3" y1="10" x2="21" y2="10" />
+        </svg>
+        {selected?.label ?? 'Período'}
+        <svg width="10" height="10" viewBox="0 0 12 8" fill="none" style={{ flexShrink: 0 }}>
+          <path d="M1 1.5L6 6.5L11 1.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+
+      {open && (
+        <>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 99 }} onClick={() => setOpen(false)} />
+          <div style={{
+            position: 'absolute', top: 36, left: 0,
+            background: '#fff', border: '1px solid #f0f0f0', borderRadius: 4,
+            boxShadow: '0 6px 16px rgba(0,0,0,0.08)', zIndex: 100, minWidth: 160, padding: '4px 0',
+          }}>
+            {options.map(opt => (
+              <div
+                key={opt.value}
+                onClick={() => { onChange(opt.value); setOpen(false) }}
+                style={{
+                  padding: '7px 12px', cursor: 'pointer', fontSize: 14,
+                  color: opt.value === value ? '#1890FF' : 'rgba(0,0,0,0.85)',
+                  background: opt.value === value ? '#e6f7ff' : 'transparent',
+                  fontWeight: opt.value === value ? 500 : 400,
+                  fontFamily: 'Roboto, sans-serif',
+                }}
+                onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = opt.value === value ? '#e6f7ff' : '#f5f5f5'}
+                onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = opt.value === value ? '#e6f7ff' : 'transparent'}
+              >
+                {opt.label}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  )
 }
 
 function FilterPill({ config }: { config: TableFilterConfig }) {
@@ -154,14 +238,22 @@ export default function DataTable<T extends object>({
   onExport,
   onAdvancedFilter,
   toolbarExtra,
+  periodOptions,
+  defaultPeriod,
+  periodValue: periodValueProp,
+  onPeriodChange,
   loading,
   pageSize = 10,
   showPagination = true,
   expandable,
   onRow,
 }: DataTableProps<T>) {
+  const [periodInternal, setPeriodInternal] = useState(defaultPeriod ?? periodOptions?.[0]?.value ?? '')
+  const periodValue = periodValueProp ?? periodInternal
+  const handlePeriodChange = (v: string) => { setPeriodInternal(v); onPeriodChange?.(v) }
+
   const showTitle = title || titleExtra
-  const showToolbar = onSearch || (filters && filters.length > 0) || onExport || onAdvancedFilter || toolbarExtra
+  const showToolbar = onSearch || (filters && filters.length > 0) || onExport || onAdvancedFilter || toolbarExtra || periodOptions
 
   return (
     <div style={{
@@ -248,6 +340,16 @@ export default function DataTable<T extends object>({
           ))}
 
           {toolbarExtra}
+
+          {/* Period filter — separador visual antes dos filtros */}
+          {periodOptions && (
+            <>
+              {(onSearch || (filters && filters.length > 0) || toolbarExtra) && (
+                <div style={{ width: 1, height: 20, background: '#f0f0f0', margin: '0 4px' }} />
+              )}
+              <PeriodPill options={periodOptions} value={periodValue} onChange={handlePeriodChange} />
+            </>
+          )}
 
           {/* Right-aligned actions */}
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>

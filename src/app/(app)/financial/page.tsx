@@ -4,7 +4,8 @@ import { useState } from 'react'
 import PageHeader from '@/components/shared/PageHeader'
 import Icon from '@/components/shared/Icon'
 import { useNavStore } from '@/store/nav.store'
-import DataTable, { type ColumnType } from '@/components/ui/DataTable'
+import DataTable, { type ColumnType, PERIOD_OPTIONS } from '@/components/ui/DataTable'
+import Tag from '@/components/shared/Tag'
 
 const fmt = (v: number) => 'R$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
@@ -55,16 +56,6 @@ const ANTECIP_EC_DATA = [
 ]
 type AntecipEC = typeof ANTECIP_EC_DATA[0]
 
-const liqStatusStyle: Record<string, { bg: string; color: string; border: string }> = {
-  'Liquidado': { bg:'#f6ffed', color:'#52c41a', border:'#b7eb8f' },
-  'Pendente':  { bg:'#fffbe6', color:'#faad14', border:'#ffe58f' },
-  'Previsto':  { bg:'#e6f7ff', color:'#1890FF', border:'#91d5ff' },
-}
-
-const LiqTag = ({ s }: { s: string }) => {
-  const st = liqStatusStyle[s] || liqStatusStyle['Pendente']
-  return <span style={{ background:st.bg, color:st.color, border:`1px solid ${st.border}`, borderRadius:2, padding:'1px 8px', fontSize:12, fontWeight:500 }}>{s}</span>
-}
 
 /* Drawer component */
 const Drawer = ({ open, onClose, title, width = 480, children, footer }: {
@@ -94,7 +85,6 @@ const Drawer = ({ open, onClose, title, width = 480, children, footer }: {
 
 const DrawerLiquidacaoDetalhes = ({ open, onClose, liq }: { open: boolean; onClose: () => void; liq: LiqEvento | null }) => {
   if (!liq) return null
-  const statusSt = liqStatusStyle[liq.status] || liqStatusStyle['Pendente']
   return (
     <Drawer open={open} onClose={onClose} title="Detalhes da liquidação" width={480}
       footer={<>
@@ -103,7 +93,7 @@ const DrawerLiquidacaoDetalhes = ({ open, onClose, liq }: { open: boolean; onClo
       </>}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
         <span style={{ fontSize:14, fontWeight:600, color:'rgba(0,0,0,0.85)' }}>Dados da operação</span>
-        <span style={{ background:statusSt.bg, color:statusSt.color, border:`1px solid ${statusSt.border}`, borderRadius:2, padding:'2px 10px', fontSize:13, fontWeight:500 }}>{liq.status}</span>
+        <Tag status={liq.status} />
       </div>
       {[
         { label:'Adquirente', value: liq.adq },
@@ -248,6 +238,8 @@ export default function FinancialPage() {
 
   const [drawerLiq, setDrawerLiq] = useState<LiqEvento | null>(null)
   const [drawerSim, setDrawerSim] = useState(false)
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set())
+  const dismiss = (id: string) => setDismissed(p => { const s = new Set(p); s.add(id); return s })
 
   const KPI_FIN: Record<string, Array<{label:string;value:string;bg:string;border:string;color:string;sub:string}>> = {
     extrato: [
@@ -314,10 +306,12 @@ export default function FinancialPage() {
             return (
               <DataTable<ExtratoRow>
                 title="Extrato de caixa — Abril 2026"
-                titleExtra={<button style={{ border:'1px solid #d9d9d9', background:'#fff', borderRadius:2, padding:'4px 14px', fontSize:13, cursor:'pointer', display:'flex', alignItems:'center', gap:6, color:'rgba(0,0,0,0.85)' }}><Icon name="download" size={13} color="rgba(0,0,0,0.45)" /> Exportar</button>}
                 columns={cols}
                 dataSource={EXTRATO_DATA}
                 rowKey={(_,i)=>String(i)}
+                onExport={()=>{}}
+                periodOptions={PERIOD_OPTIONS}
+                defaultPeriod="mes"
               />
             )
           })()}
@@ -345,7 +339,7 @@ export default function FinancialPage() {
               { title:'Registradora', dataIndex:'registradora', key:'registradora', render: v => <span style={{ background:'#f5f5f5', border:'1px solid #d9d9d9', borderRadius:2, padding:'1px 7px', fontSize:11, fontWeight:500 }}>{v}</span> },
               { title:'Domicílio bancário', dataIndex:'domicilio', key:'domicilio', render: v => <span style={{ color:'rgba(0,0,0,0.65)', fontFamily:'Roboto Mono', fontSize:11 }}>{v}</span> },
               { title:'Volume liquidado', dataIndex:'vol', key:'vol', render: v => <span style={{ fontWeight:600, color:'#52c41a' }}>{fmt(v)}</span> },
-              { title:'Status', dataIndex:'status', key:'status', width:100, render: v => <span style={{ background:v==='Ativo'?'#f6ffed':'#fffbe6', color:v==='Ativo'?'#52c41a':'#faad14', border:`1px solid ${v==='Ativo'?'#b7eb8f':'#ffe58f'}`, borderRadius:2, padding:'1px 8px', fontSize:12, fontWeight:500 }}>{v}</span> },
+              { title:'Status', dataIndex:'status', key:'status', width:100, render: v => <Tag status={v} /> },
                             { title:'Ações', key:'actions', width:70, render: () => (
                 <button title="Editar" style={{ border:'none', background:'none', color:'rgba(0,0,0,0.35)', cursor:'pointer', padding:4, display:'flex', alignItems:'center', borderRadius:4 }} onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.color='#1890FF';(e.currentTarget as HTMLElement).style.background='#f5f5f5'}} onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.color='rgba(0,0,0,0.35)';(e.currentTarget as HTMLElement).style.background='none'}}>
                   <Icon name="edit" size={14} color="currentColor" />
@@ -359,6 +353,7 @@ export default function FinancialPage() {
                 columns={domCols}
                 dataSource={LIQCEN_ADQS}
                 rowKey="adq"
+                showPagination={false}
               />
             )
           })()}
@@ -373,7 +368,7 @@ export default function FinancialPage() {
               { title:'Antecipação descontada', dataIndex:'antecip', key:'antecip', render: v => <span style={{ color:v>0?'#fa8c16':'rgba(0,0,0,0.25)' }}>{v>0?fmt(v):'—'}</span> },
               { title:'Crédito líquido', dataIndex:'cred', key:'cred', render: v => <span style={{ fontWeight:600, color:'#52c41a' }}>{fmt(v)}</span> },
               { title:'Conta creditada', dataIndex:'conta', key:'conta', render: v => <span style={{ color:'rgba(0,0,0,0.45)', fontFamily:'Roboto Mono', fontSize:11 }}>{v}</span> },
-              { title:'Status', dataIndex:'status', key:'status', width:90, render: (_,r) => <LiqTag s={r.status} /> },
+              { title:'Status', dataIndex:'status', key:'status', width:90, render: v => <Tag status={v} /> },
               { title:'', key:'acao', width:56, render: (_,r) => (
                 <button onClick={()=>setDrawerLiq(r)} title="Ver detalhes" style={{ border:'none', background:'none', color:'rgba(0,0,0,0.35)', cursor:'pointer', padding:4, display:'flex', alignItems:'center', borderRadius:4 }} onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.color='#1890FF';(e.currentTarget as HTMLElement).style.background='#f5f5f5'}} onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.color='rgba(0,0,0,0.35)';(e.currentTarget as HTMLElement).style.background='none'}}>
                   <Icon name="eye" size={14} color="currentColor" />
@@ -384,10 +379,12 @@ export default function FinancialPage() {
               <>
                 <DataTable<LiqEvento>
                   title="Eventos de liquidação — Abril 2026"
-                  titleExtra={<button style={{ border:'1px solid #d9d9d9', background:'#fff', borderRadius:2, padding:'4px 14px', fontSize:13, cursor:'pointer', display:'flex', alignItems:'center', gap:6, color:'rgba(0,0,0,0.85)' }}><Icon name="download" size={13} color="rgba(0,0,0,0.45)" /> Exportar</button>}
                   columns={evCols}
                   dataSource={LIQ_EVENTOS}
                   rowKey={(_,i)=>String(i)}
+                  onExport={()=>{}}
+                  periodOptions={PERIOD_OPTIONS}
+                  defaultPeriod="mes"
                 />
                 <div style={{ padding:'12px 16px', background:'#e6f7ff', border:'1px solid #91d5ff', borderRadius:2, display:'flex', gap:32, justifyContent:'flex-end', alignItems:'center' }}>
                   <span style={{ fontSize:13, fontWeight:600, color:'#1890FF', flex:1 }}>TOTAL — {LIQ_EVENTOS.length} eventos</span>
@@ -412,14 +409,17 @@ export default function FinancialPage() {
       {/* ── ANTECIPAÇÕES TAB ── */}
       {tab==='antecipacoes' && (
         <div style={{ padding:24, display:'flex', flexDirection:'column', gap:16 }}>
-          <div style={{ background:'#e6f7ff', border:'1px solid #91d5ff', borderRadius:2, padding:'12px 16px', display:'flex', gap:12, alignItems:'flex-start' }}>
-            <Icon name="info" size={16} color="#1890FF" />
-            <div style={{ fontSize:12, color:'rgba(0,0,0,0.65)', lineHeight:'18px' }}>
-              <strong>Antecipação de recebíveis para merchants:</strong> o sub-adquirente disponibiliza adiantamento dos recebíveis dos seus merchants (EC).
-              O sub adianta o valor ao merchant e recupera quando o adquirente liquidar a parcela no prazo original.
-              A taxa cobrada ao merchant é a receita do sub nesta operação.
+          {!dismissed.has('fin-antecip-info') && (
+            <div style={{ background:'#e6f7ff', border:'1px solid #91d5ff', borderRadius:2, padding:'10px 16px', display:'flex', gap:10, alignItems:'flex-start', position:'relative' }}>
+              <Icon name="info" size={15} color="#1890FF" />
+              <div style={{ flex:1, paddingRight:20, fontSize:12, color:'rgba(0,0,0,0.65)', lineHeight:'18px' }}>
+                <strong>Antecipação a merchants:</strong> o sub adianta o valor ao EC e recupera via desconto nos próximos repasses. A taxa cobrada é a receita do sub nesta operação.
+              </div>
+              <button onClick={() => dismiss('fin-antecip-info')} title="Fechar" style={{ position:'absolute', top:8, right:10, border:'none', background:'none', cursor:'pointer', color:'rgba(0,0,0,0.25)', display:'flex', alignItems:'center', padding:4, borderRadius:2 }}>
+                <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
             </div>
-          </div>
+          )}
 
           {(()=>{
             const cols: ColumnType<AntecipEC>[] = [
@@ -431,7 +431,7 @@ export default function FinancialPage() {
               { title:'Juros recebidos', dataIndex:'juros', key:'juros', width:130, render: v => <span style={{ fontWeight:600, color:'#52c41a', whiteSpace:'nowrap' }}>{fmt(v)}</span> },
               { title:'Vencimento original', dataIndex:'venc', key:'venc', width:140, render: v => <span style={{ color:'rgba(0,0,0,0.65)' }}>{v}</span> },
               { title:'A recuperar', dataIndex:'recuperar', key:'recuperar', width:120, render: v => <span style={{ fontWeight:600, color:v>0?'#fa8c16':'rgba(0,0,0,0.25)', whiteSpace:'nowrap' }}>{v>0?fmt(v):'—'}</span> },
-              { title:'Status', dataIndex:'status', key:'status', width:110, render: v => <span style={{ background:v==='Recuperado'?'#f6ffed':'#fffbe6', color:v==='Recuperado'?'#52c41a':'#faad14', border:`1px solid ${v==='Recuperado'?'#b7eb8f':'#ffe58f'}`, borderRadius:2, padding:'1px 8px', fontSize:12, fontWeight:500 }}>{v}</span> },
+              { title:'Status', dataIndex:'status', key:'status', width:110, render: v => <Tag status={v} /> },
             ]
             return (
               <>
@@ -450,6 +450,9 @@ export default function FinancialPage() {
                   columns={cols}
                   dataSource={ANTECIP_EC_DATA}
                   rowKey="id"
+                  onExport={()=>{}}
+                  periodOptions={PERIOD_OPTIONS}
+                  defaultPeriod="mes"
                 />
                 <div style={{ padding:'12px 16px', background:'#f6ffed', border:'1px solid #b7eb8f', borderRadius:2, display:'flex', gap:24, justifyContent:'flex-end', alignItems:'center' }}>
                   <span style={{ fontSize:12, fontWeight:600, color:'#52c41a', flex:1 }}>Resumo das operações</span>

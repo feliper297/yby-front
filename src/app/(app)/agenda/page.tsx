@@ -5,7 +5,8 @@ import PageHeader from '@/components/shared/PageHeader'
 import Icon from '@/components/shared/Icon'
 import BrandLogo from '@/components/shared/BrandLogo'
 import { useNavStore } from '@/store/nav.store'
-import DataTable, { type ColumnType } from '@/components/ui/DataTable'
+import DataTable, { type ColumnType, PERIOD_OPTIONS } from '@/components/ui/DataTable'
+import Tag from '@/components/shared/Tag'
 
 const fmt = (v: number) => 'R$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
@@ -57,20 +58,6 @@ const PARCELAS_DATA = [
   { data:'13/04/2026', nsu:'547071829', adq:'Getnet', ec:'Mercado Livre',   bandeira:'Visa',   lancamento:'Débito',            parcela:'1/1',  valor:350.00,  comissao:5.25,  antecipDescontada:0,       liquido:344.75,  antecipado:false, status:'Pago'       },
 ]
 
-const STATUS_STYLE: Record<string, { bg: string; color: string; border: string }> = {
-  'Pago':       { bg:'#f6ffed', color:'#52c41a', border:'#b7eb8f' },
-  'Pendente':   { bg:'#fffbe6', color:'#faad14', border:'#ffe58f' },
-  'Antecipado': { bg:'#fff7e6', color:'#fa8c16', border:'#ffd591' },
-  'Chargeback': { bg:'#fff1f0', color:'#ff4d4f', border:'#ffa39e' },
-  'Liquidado':  { bg:'#f6ffed', color:'#389e0d', border:'#95de64' },
-  'Em aberto':  { bg:'#fffbe6', color:'#faad14', border:'#ffe58f' },
-  'Quitado':    { bg:'#f6ffed', color:'#52c41a', border:'#b7eb8f' },
-}
-
-const AgendaTag = ({ status }: { status: string }) => {
-  const s = STATUS_STYLE[status] || STATUS_STYLE['Pendente']
-  return <span style={{ background:s.bg, color:s.color, border:`1px solid ${s.border}`, borderRadius:2, padding:'1px 8px', fontSize:12, fontWeight:500 }}>{status}</span>
-}
 
 const Tooltip = ({ text, children }: { text: string; children: React.ReactNode }) => {
   const [show, setShow] = useState(false)
@@ -95,15 +82,20 @@ const Tooltip = ({ text, children }: { text: string; children: React.ReactNode }
 
 const CAL_VALUES: Record<string, number[]> = {
   bruto:      [0,48000,0,48000,48000,0,48000,0,48000,48000,0,48000,0,48000,48000,0,48000,0,48000,48000,0,0,0,0,0,0,0,0,0,0],
+  // repasse = o que o sub paga aos ECs (bruto − MDR ~7%)
+  repasse:    [0,44640,0,44640,44640,0,44640,0,44640,44640,0,44640,0,44640,44640,0,44640,0,44640,44640,0,0,0,0,0,0,0,0,0,0],
   adquirente: [0,32000,0,31000,29000,0,33000,0,28000,35000,0,30000,0,34000,27000,0,36000,0,29000,38000,0,0,0,0,0,0,0,0,0,0],
-  liquido:    [0,38400,0,38400,38400,0,38400,0,38400,38400,0,38400,0,38400,38400,0,38400,0,38400,38400,0,0,0,0,0,0,0,0,0,0],
+  // liquido = o que fica na conta do sub após deduções e antecipações
+  liquido:    [0,3360,0,3360,3360,0,3360,0,3360,3360,0,3360,0,3360,3360,0,3360,0,3360,3360,0,0,0,0,0,0,0,0,0,0],
 }
 const CAL_ADQUIRENTES = ['—','Adiq','—','Rede','Cielo','—','Adiq','—','Rede','Adiq','—','Cielo','—','Rede','Getnet','—','Adiq','—','Cielo','Rede','—','—','—','—','—','—','—','—','—','—']
 const CALENDAR_DAYS = Array.from({length:30},(_,i)=>{
   const day = i+1
   const past = day < 22
   const base = [48000,0,48000,0,48000,48000,0][day%7]
-  return { day, past, value: base, status: past ? (day%5===0?'antecipado':'recebido') : 'previsto' }
+  // 3 estados: creditado (liquidação confirmada na conta) | confirmado (agendado, ainda não creditado) | antecipado | previsto
+  const status = day%5===0 && past ? 'antecipado' : day < 19 ? 'creditado' : day < 22 ? 'confirmado' : 'previsto'
+  return { day, past, value: base, status }
 })
 
 const AGENDA_TABS = [
@@ -125,11 +117,14 @@ export default function AgendaPage() {
   const [filterStatus, setFilterStatus] = useState('')
   const [selectedDay, setSelectedDay] = useState(22)
   const [expandedLotes, setExpandedLotes] = useState<Record<string,boolean>>({'10/04/2026-Visa': true})
-  const [calView, setCalView] = useState<'bruto' | 'liquido'>('bruto')
+  const [calView, setCalView] = useState<'bruto' | 'repasse' | 'liquido'>('bruto')
   const [calBrutoSub, setCalBrutoSub] = useState<'consolidado' | 'adquirente'>('consolidado')
   const [selectedAdqs, setSelectedAdqs] = useState<string[]>([])
   const [adqDropOpen, setAdqDropOpen] = useState(false)
   const isPerAdquirente = calView === 'bruto' && calBrutoSub === 'adquirente'
+  // Banners/legendas dispensáveis (session-only)
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set())
+  const dismiss = (id: string) => setDismissed(p => { const s = new Set(p); s.add(id); return s })
   const ALL_ADQS = ['Adiq','Rede','Cielo','Getnet']
   const toggleAdq = (a: string) => setSelectedAdqs(prev => prev.includes(a) ? prev.filter(x=>x!==a) : [...prev, a])
   const bandeiras = ['Visa','Master','Elo']
@@ -179,10 +174,10 @@ export default function AgendaPage() {
       { label:'Líquido total dos lotes', value:fmt(670338), bg:'#f6ffed', border:'#b7eb8f', color:'#52c41a', sub:'Crédito líquido previsto' },
     ],
     antecipacoes: [
-      { label:'Saldo devedor total', value:fmt(140000), bg:'#fff7e6', border:'#ffd591', color:'#fa8c16', sub:'Em aberto com adquirentes' },
+      { label:'Total antecipado a merchants', value:fmt(140000), bg:'#fff7e6', border:'#ffd591', color:'#fa8c16', sub:'Saldo em aberto com seus ECs' },
       { label:'Antecipações realizadas (mês)', value:fmt(85000), bg:'#e6f7ff', border:'#91d5ff', color:'#1890FF', sub:'3 operações em abril/26' },
-      { label:'Taxa média tomada', value:'1,99% a.m.', bg:'#f5f5f5', border:'#d9d9d9', color:'rgba(0,0,0,0.85)', sub:'Média ponderada das ops' },
-      { label:'Custo total do mês', value:fmt(1691), bg:'#fff1f0', border:'#ffa39e', color:'#ff4d4f', sub:'Juros pagos em antecipações' },
+      { label:'Taxa média cobrada', value:'1,99% a.m.', bg:'#f5f5f5', border:'#d9d9d9', color:'rgba(0,0,0,0.85)', sub:'Média ponderada cobrada dos ECs' },
+      { label:'Receita com juros (mês)', value:fmt(1691), bg:'#f6ffed', border:'#b7eb8f', color:'#52c41a', sub:'Juros recebidos dos merchants' },
     ],
     funding: [
       { label:'Total liquidado (mês)', value:fmt(1240500), bg:'#f6ffed', border:'#b7eb8f', color:'#52c41a', sub:'Créditos confirmados · abr/26' },
@@ -250,15 +245,14 @@ export default function AgendaPage() {
         ))}
       </div>
 
-      {/* Formula bar */}
-      {['calendario','detalhada','lote'].includes(tab) && (
-        <div style={{ padding:'8px 24px', display:'flex', alignItems:'center', gap:6, fontSize:12, color:'rgba(0,0,0,0.45)' }}>
-          <span style={{ fontWeight:500, color:'rgba(0,0,0,0.65)' }}>Fórmula:</span>
-          {[{l:'Total Bruto',c:'#1890FF'},{op:'−'},{l:'Antecipação Tomada',c:'#fa8c16'},{op:'−'},{l:'Deduções & Custos',c:'#ff4d4f'},{op:'='},{l:'Líquido a Receber',c:'#52c41a'}].map((f,i) =>
-            'op' in f
-              ? <span key={i} style={{ color:'rgba(0,0,0,0.35)' }}>{(f as {op:string}).op}</span>
-              : <span key={i} style={{ color:(f as {l:string;c:string}).c, fontWeight:500 }}>{(f as {l:string}).l}</span>
-          )}
+      {/* Nota de leitura — dispensável */}
+      {['calendario','detalhada','lote'].includes(tab) && !dismissed.has('formula') && (
+        <div style={{ padding:'6px 24px', display:'flex', alignItems:'center', gap:8, fontSize:11, color:'rgba(0,0,0,0.35)', background:'transparent' }}>
+          <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="rgba(0,0,0,0.25)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span><span style={{ color:'#1890FF', fontWeight:500 }}>Bruto</span> = crédito do adquirente · <span style={{ color:'rgba(0,0,0,0.55)', fontWeight:500 }}>Repasses</span> = o que vai para os ECs · <span style={{ color:'#52c41a', fontWeight:500 }}>Líquido</span> = o que fica com o sub. Deduções visíveis no painel do dia.</span>
+          <button onClick={() => dismiss('formula')} style={{ border:'none', background:'none', cursor:'pointer', color:'rgba(0,0,0,0.25)', display:'flex', alignItems:'center', marginLeft:'auto', padding:'2px 4px', borderRadius:2, lineHeight:1 }}>
+            <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
         </div>
       )}
 
@@ -276,9 +270,10 @@ export default function AgendaPage() {
               </div>
               <div style={{ display:'flex', background:'#f5f5f5', borderRadius:4, padding:2, gap:1 }}>
                 {([
-                  ['bruto','Valores brutos'],
-                  ['liquido','Valores líquidos'],
-                ] as const).map(([k, l]) => (
+                  ['bruto',   'Bruto'],
+                  ['repasse', 'Repasses'],
+                  ['liquido', 'Líquido'],
+                ] as ['bruto'|'repasse'|'liquido', string][]).map(([k, l]) => (
                   <button
                     key={k}
                     onClick={() => { setCalView(k); if (k !== 'bruto') setCalBrutoSub('consolidado') }}
@@ -290,6 +285,19 @@ export default function AgendaPage() {
 
             {/* Body: pills + grid + legenda */}
             <div style={{ padding:'16px 21px', display:'flex', flexDirection:'column', gap:16 }}>
+              {/* Legenda de view */}
+              {calView === 'repasse' && (
+                <div style={{ fontSize:11, color:'rgba(0,0,0,0.45)', display:'flex', alignItems:'center', gap:4 }}>
+                  <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="rgba(0,0,0,0.3)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                  Valor que o sub repassa aos merchants (ECs) — bruto menos MDR retido
+                </div>
+              )}
+              {calView === 'liquido' && (
+                <div style={{ fontSize:11, color:'rgba(0,0,0,0.45)', display:'flex', alignItems:'center', gap:4 }}>
+                  <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="rgba(0,0,0,0.3)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                  Margem líquida do sub (MDR retido − custos de processamento)
+                </div>
+              )}
               {calView === 'bruto' && (
                 <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                   <span style={{ fontSize:11, color:'rgba(0,0,0,0.35)', fontWeight:500, whiteSpace:'nowrap' }}>Quebrar por:</span>
@@ -336,48 +344,53 @@ export default function AgendaPage() {
                   {CALENDAR_DAYS.map(d => {
                     const isSelected = d.day === selectedDay
                     const isToday = d.day === 22
+                    const isPast = d.day < 22
                     const effectiveView = isPerAdquirente ? 'adquirente' : calView
-                    const dayVal = (CAL_VALUES[effectiveView] || CAL_VALUES.bruto)[d.day - 1] || 0
+                    const dayVal = (CAL_VALUES[effectiveView] ?? CAL_VALUES.bruto)[d.day - 1] ?? 0
                     const adqLabel = isPerAdquirente ? CAL_ADQUIRENTES[d.day - 1] : null
-                    const col = dayVal === 0 ? 'rgba(0,0,0,0.25)' : d.status==='recebido' ? '#52c41a' : d.status==='antecipado' ? '#fa8c16' : '#1890FF'
+                    const dayNumColor = isToday ? '#1890FF' : isPast ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.65)'
+                    const valColor = dayVal === 0
+                      ? (isPast ? 'rgba(0,0,0,0.18)' : 'rgba(0,0,0,0.2)')
+                      : isPast ? 'rgba(0,0,0,0.35)' : '#1890FF'
+                    const cellOpacity = isPast && !isSelected ? 0.6 : 1
+                    const bgDay = isSelected ? '#e6f7ff' : isToday ? '#f0f7ff' : '#fff'
                     return (
                       <div key={d.day} onClick={()=>setSelectedDay(d.day)}
-                        style={{ borderRight:'1px solid #f0f0f0', borderBottom:'1px solid #f0f0f0', minHeight:72, padding:'8px 10px', cursor:'pointer', background:isSelected?'#e6f7ff':isToday?'#f0f7ff':'#fff', position:'relative', transition:'background 0.1s' }}
-                        onMouseEnter={e=>{ if(!isSelected) (e.currentTarget as HTMLElement).style.background='#fafafa' }}
-                        onMouseLeave={e=>{ (e.currentTarget as HTMLElement).style.background=isSelected?'#e6f7ff':isToday?'#f0f7ff':'#fff' }}>
-                        <div style={{ fontSize:13, fontWeight:isToday?700:400, color:isToday?'#1890FF':'rgba(0,0,0,0.85)', marginBottom:2 }}>{d.day}</div>
+                        style={{ borderRight:'1px solid #f0f0f0', borderBottom:'1px solid #f0f0f0', minHeight:72, padding:'8px 10px', cursor:'pointer', background:bgDay, position:'relative', transition:'background 0.1s', opacity:cellOpacity }}
+                        onMouseEnter={e=>{ if(!isSelected) { (e.currentTarget as HTMLElement).style.background='#fafafa'; (e.currentTarget as HTMLElement).style.opacity='1' } }}
+                        onMouseLeave={e=>{ (e.currentTarget as HTMLElement).style.background=bgDay; (e.currentTarget as HTMLElement).style.opacity=String(cellOpacity) }}>
+                        {isToday && <div style={{ position:'absolute', top:0, left:0, right:0, height:2, background:'#1890FF', borderRadius:'2px 2px 0 0' }} />}
+                        <div style={{ fontSize:13, fontWeight:isToday?700:400, color:dayNumColor, marginBottom:4 }}>{d.day}</div>
                         {isPerAdquirente && adqLabel && adqLabel !== '—' ? (
                           <>
                             <div style={{ fontSize:10, color:'rgba(0,0,0,0.35)', marginBottom:2 }}>{adqLabel}</div>
-                            <div style={{ fontSize:12, fontWeight:600, color:col }}>{dayVal>0?`R$ ${(dayVal/1000).toFixed(0)}k`:'R$ 0'}</div>
+                            <div style={{ fontSize:12, fontWeight:600, color:valColor }}>{dayVal>0?`R$ ${(dayVal/1000).toFixed(0)}k`:'—'}</div>
                           </>
                         ) : (
-                          <>
-                            <div style={{ fontSize:10, color:'rgba(0,0,0,0.35)', marginBottom:2 }}>{d.past?'Recebido':'A Receber'}</div>
-                            <div style={{ fontSize:12, fontWeight:600, color:col }}>{dayVal===0?'R$ 0':`R$ ${(dayVal/1000).toFixed(0)}k`}</div>
-                          </>
+                          <div style={{ fontSize:12, fontWeight:600, color:valColor }}>{dayVal===0?'—':`R$ ${(dayVal/1000).toFixed(0)}k`}</div>
                         )}
-                        {isSelected && <div style={{ position:'absolute', top:4, right:6, width:6, height:6, borderRadius:'50%', background:'#1890FF' }} />}
+                        {isSelected && <div style={{ position:'absolute', top:6, right:8, width:5, height:5, borderRadius:'50%', background:'#1890FF' }} />}
                       </div>
                     )
                   })}
                 </div>
               </div>
 
-              {/* Legenda */}
-              <div style={{ borderTop:'1px solid #f0f0f0', paddingTop:12, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                <div>
-                  <div style={{ fontSize:12, color:'rgba(0,0,0,0.45)', marginBottom:2 }}>Visão de caixa do sub no período</div>
-                  <div style={{ fontSize:11, color:'rgba(0,0,0,0.35)' }}>O calendário mostra o que entra no caixa, o que já foi antecipado e o que fica retido em custos ou garantia.</div>
-                </div>
-                <div style={{ display:'flex', gap:32 }}>
-                  {[{l:'Previsto para crédito',v:'R$ 91,4 mil',c:'#52c41a'},{l:'Já antecipado',v:'R$ 60,0 mil',c:'#fa8c16'},{l:'Custos do dia',v:'R$ 30,0 mil',c:'#ff4d4f'}].map(s => (
-                    <div key={s.l}>
-                      <div style={{ fontSize:11, color:'rgba(0,0,0,0.45)' }}>{s.l}</div>
-                      <div style={{ fontSize:14, fontWeight:600, color:s.c }}>{s.v}</div>
-                    </div>
-                  ))}
-                </div>
+              {/* Legenda temporal */}
+              <div style={{ borderTop:'1px solid #f0f0f0', paddingTop:8, display:'flex', alignItems:'center', gap:16 }}>
+                <span style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:11, color:'rgba(0,0,0,0.35)' }}>
+                  <span style={{ width:20, height:8, borderRadius:2, background:'rgba(0,0,0,0.1)', display:'inline-block' }} />
+                  Passado
+                </span>
+                <span style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:11, color:'rgba(0,0,0,0.45)' }}>
+                  <span style={{ width:20, height:8, borderRadius:2, borderTop:'2px solid #1890FF', background:'#f0f7ff', display:'inline-block' }} />
+                  Hoje
+                </span>
+                <span style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:11, color:'rgba(0,0,0,0.45)' }}>
+                  <span style={{ width:20, height:8, borderRadius:2, background:'#fff', border:'1px solid #f0f0f0', display:'inline-block' }} />
+                  Futuro
+                </span>
+                <span style={{ fontSize:11, color:'rgba(0,0,0,0.25)', marginLeft:'auto' }}>Clique no dia para detalhes →</span>
               </div>
             </div>
           </div>
@@ -385,9 +398,22 @@ export default function AgendaPage() {
           {/* ── Painel direito: detalhe do dia — white card com divider após título ── */}
           <div style={{ width:280, flexShrink:0 }}>
             <div style={{ background:'#fff', border:'1px solid rgba(0,0,0,0.06)', borderRadius:2, display:'flex', flexDirection:'column' }}>
-              {/* Header: data + subtítulo */}
+              {/* Header: data + estado do dia */}
               <div style={{ padding:'16px 18px', borderBottom:'1px solid #f0f0f0' }}>
-                <div style={{ fontSize:16, fontWeight:600, color:'rgba(0,0,0,0.85)', marginBottom:2 }}>{selectedDay} de {MONTHS[calMonth]}</div>
+                <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
+                  <span style={{ fontSize:16, fontWeight:600, color:'rgba(0,0,0,0.85)' }}>{selectedDay} de {MONTHS[calMonth]}</span>
+                  {(() => {
+                    const dayObj = CALENDAR_DAYS.find(d => d.day === selectedDay)
+                    const BADGE: Record<string,{bg:string;color:string;border:string;label:string}> = {
+                      creditado:  { bg:'#f6ffed', color:'#389e0d', border:'#b7eb8f', label:'Creditado' },
+                      confirmado: { bg:'#fffbe6', color:'#874d00', border:'#ffe58f', label:'Confirmado' },
+                      antecipado: { bg:'#fff7e6', color:'#d46b08', border:'#ffd591', label:'Antecipado' },
+                      previsto:   { bg:'#e6f7ff', color:'#096dd9', border:'#91d5ff', label:'Previsto' },
+                    }
+                    const b = BADGE[dayObj?.status || 'previsto']
+                    return <span style={{ fontSize:10, background:b.bg, color:b.color, border:`1px solid ${b.border}`, borderRadius:2, padding:'1px 6px', fontWeight:600, lineHeight:'18px' }}>{b.label}</span>
+                  })()}
+                </div>
                 <div style={{ fontSize:11, color:'rgba(0,0,0,0.45)' }}>{selectedAdqs.length>0?`Filtrado: ${selectedAdqs.join(', ')}`:'Resumo consolidado do dia'}</div>
               </div>
               {/* Body */}
@@ -413,16 +439,30 @@ export default function AgendaPage() {
                   </div>
                 ))}
                 <div style={{ fontSize:12, fontWeight:600, color:'rgba(0,0,0,0.65)', margin:'12px 0 8px' }}>Compromissos e retenções</div>
-                {[
-                  {l:<Tooltip text="Valor antecipado junto ao adquirente que será descontado deste crédito.">Valor já antecipado</Tooltip>,v:'-R$ 60.000,00',c:'#fa8c16'},
-                  {l:<Tooltip text="MDR (Merchant Discount Rate): taxa percentual cobrada pelo adquirente por cada transação.">Taxas e MDR</Tooltip>,v:'-R$ 25.000,00',c:'#ff4d4f'},
-                  {l:<Tooltip text="Gravame é uma retenção de garantia sobre os recebíveis futuros.">Gravame / garantia</Tooltip>,v:'-R$ 15.000,00',c:'#722ED1'},
-                ].map((r,i) => (
-                  <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'6px 0', borderBottom:'1px solid #f0f0f0', fontSize:12 }}>
-                    <span style={{ color:'rgba(0,0,0,0.65)' }}>{r.l}</span>
-                    <span style={{ color:r.c, fontWeight:600 }}>{r.v}</span>
+                {/* Taxas: custo operacional */}
+                <div style={{ display:'flex', justifyContent:'space-between', padding:'6px 0', borderBottom:'1px solid #f0f0f0', fontSize:12 }}>
+                  <span style={{ color:'rgba(0,0,0,0.65)' }}><Tooltip text="MDR (Merchant Discount Rate): taxa percentual cobrada pelo adquirente por cada transação processada.">Taxas e MDR</Tooltip></span>
+                  <span style={{ color:'#ff4d4f', fontWeight:600 }}>-R$ 25.000,00</span>
+                </div>
+                {/* Recebíveis comprometidos: antecipação + gravame agrupados (ambos bloqueiam o crédito do dia) */}
+                <div style={{ padding:'6px 0', borderBottom:'1px solid #f0f0f0', fontSize:12 }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                    <span style={{ color:'rgba(0,0,0,0.65)' }}>
+                      <Tooltip text="Recebíveis comprometidos = antecipação tomada (dívida com adquirente, descontada automaticamente) + gravame/oneração (retenção de garantia para operação de crédito). São conceitos distintos mas ambos reduzem o crédito disponível do dia.">
+                        Recebíveis comprometidos
+                      </Tooltip>
+                    </span>
+                    <span style={{ color:'#722ED1', fontWeight:600 }}>-R$ 75.000,00</span>
                   </div>
-                ))}
+                  <div style={{ display:'flex', flexDirection:'column', gap:2, marginTop:4, paddingLeft:12, borderLeft:'2px solid #f0f0f0' }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', fontSize:11, color:'rgba(0,0,0,0.45)' }}>
+                      <span>↳ Antecipação tomada</span><span>R$ 60.000</span>
+                    </div>
+                    <div style={{ display:'flex', justifyContent:'space-between', fontSize:11, color:'rgba(0,0,0,0.45)' }}>
+                      <span>↳ Gravame / oneração</span><span>R$ 15.000</span>
+                    </div>
+                  </div>
+                </div>
                 <div style={{ marginTop:12, padding:'10px 12px', background:'#f5f5f5', borderRadius:2 }}>
                   <div style={{ fontSize:11, fontWeight:600, color:'rgba(0,0,0,0.65)', marginBottom:4 }}>Leitura operacional</div>
                   <div style={{ fontSize:11, color:'rgba(0,0,0,0.45)', lineHeight:'16px' }}>Parte do bruto deste dia não cai em conta porque já foi usada como antecipação e outra parte segue retida por custo e garantia.</div>
@@ -503,7 +543,7 @@ export default function AgendaPage() {
               },
               {
                 title: 'Status', dataIndex: 'status', key: 'status', width: 120,
-                render: v => <AgendaTag status={v} />,
+                render: v => <Tag status={v} />,
               },
               {
                 title: '', key: 'actions', width: 60,
@@ -559,7 +599,7 @@ export default function AgendaPage() {
                             <td style={{ padding:'12px 14px', color:'rgba(0,0,0,0.65)' }}>{fmt(lote.comissao)}</td>
                             <td style={{ padding:'12px 14px', color:lote.antecipDescontada>0?'#fa8c16':'rgba(0,0,0,0.25)' }}>{lote.antecipDescontada>0?fmt(lote.antecipDescontada):'—'}</td>
                             <td style={{ padding:'12px 14px', fontWeight:600, color:'#52c41a' }}>{fmt(lote.liquido)}</td>
-                            <td style={{ padding:'12px 14px' }}><AgendaTag status={loteStatus} /></td>
+                            <td style={{ padding:'12px 14px' }}><Tag status={loteStatus} /></td>
                           </tr>,
                           ...(isExp ? [
                             ...lote.rows.map((r,i) => (
@@ -573,7 +613,7 @@ export default function AgendaPage() {
                                 <td style={{ padding:'9px 14px', color:'rgba(0,0,0,0.55)' }}>{fmt(r.comissao)}</td>
                                 <td style={{ padding:'9px 14px', color:r.antecipDescontada>0?'#fa8c16':'rgba(0,0,0,0.2)' }}>{r.antecipDescontada>0?fmt(r.antecipDescontada):'–'}</td>
                                 <td style={{ padding:'9px 14px', fontWeight:500, color:r.antecipado?'#fa8c16':'#52c41a' }}>{fmt(r.liquido)}</td>
-                                <td style={{ padding:'9px 14px' }}><AgendaTag status={r.status} /></td>
+                                <td style={{ padding:'9px 14px' }}><Tag status={r.status} /></td>
                               </tr>
                             )),
                             <tr key={`${lote.key}-subtotal`} style={{ background:'#e6f7ff', borderBottom:'1px solid #91d5ff' }}>
@@ -639,6 +679,8 @@ export default function AgendaPage() {
                 ]}
                 onExport={() => {}}
                 onAdvancedFilter={() => {}}
+                periodOptions={PERIOD_OPTIONS}
+                defaultPeriod="hoje"
                 pageSize={10}
               />
             )
@@ -654,121 +696,143 @@ export default function AgendaPage() {
 
 
       {/* ── POR LOTE TAB ── */}
-      {tab==='lote' && (
-        <div style={{ padding:24, display:'flex', flexDirection:'column', gap:12 }}>
-          <div style={{ background:'#fff', border:'1px solid rgba(0,0,0,0.06)', borderRadius:2, padding:'12px 16px', display:'flex', gap:10, alignItems:'center', flexWrap:'wrap' }}>
-            <div style={{ position:'relative', display:'flex', alignItems:'center', flex:'1 1 220px', maxWidth:280 }}>
-              <div style={{ position:'absolute', left:9, pointerEvents:'none' }}><Icon name="search" size={13} color="rgba(0,0,0,0.35)" /></div>
-              <input placeholder="Buscar por adquirente, bandeira, lote..." style={{ width:'100%', border:'1px solid #d9d9d9', borderRadius:2, padding:'6px 10px 6px 28px', fontSize:12, outline:'none', fontFamily:'Roboto' }} />
-            </div>
-            <select style={{ border:'1px solid #d9d9d9', borderRadius:2, padding:'6px 28px 6px 10px', fontSize:12, outline:'none', fontFamily:'Roboto', cursor:'pointer', color:'rgba(0,0,0,0.65)' }}>
-              <option>Adquirente ▾</option><option>Adiq</option><option>Rede</option><option>Cielo</option><option>Getnet</option>
-            </select>
-            <select style={{ border:'1px solid #d9d9d9', borderRadius:2, padding:'6px 28px 6px 10px', fontSize:12, outline:'none', fontFamily:'Roboto', cursor:'pointer', color:'rgba(0,0,0,0.65)' }}>
-              <option>Bandeira ▾</option><option>Visa</option><option>Mastercard</option><option>Elo</option>
-            </select>
-            <button style={{ border:'1px solid #d9d9d9', background:'#fff', borderRadius:2, padding:'5px 12px', fontSize:12, cursor:'pointer', display:'flex', alignItems:'center', gap:5, color:'rgba(0,0,0,0.65)', marginLeft:'auto' }}>
-              <Icon name="download" size={13} color="rgba(0,0,0,0.45)" /> Exportar
-            </button>
-          </div>
-          {[
-            { adquirente:'Adiq',   bandeira:'Visa',       lote:'L-001', qtd:412, bruto:198400, comissao:5952,  antecip:0,     liquido:192448, data:'10/04/2026', status:'Liquidado' },
-            { adquirente:'Adiq',   bandeira:'Mastercard', lote:'L-002', qtd:287, bruto:134200, comissao:4026,  antecip:60000, liquido:70174,  data:'10/04/2026', status:'Antecipado' },
-            { adquirente:'Rede',   bandeira:'Visa',       lote:'L-003', qtd:198, bruto:87500,  comissao:2625,  antecip:0,     liquido:84875,  data:'11/04/2026', status:'Liquidado' },
-            { adquirente:'Rede',   bandeira:'Elo',        lote:'L-004', qtd:156, bruto:72000,  comissao:2160,  antecip:30000, liquido:39840,  data:'11/04/2026', status:'Antecipado' },
-            { adquirente:'Cielo',  bandeira:'Mastercard', lote:'L-005', qtd:334, bruto:156700, comissao:4701,  antecip:0,     liquido:151999, data:'12/04/2026', status:'Pendente' },
-            { adquirente:'Cielo',  bandeira:'Visa',       lote:'L-006', qtd:221, bruto:103400, comissao:3102,  antecip:50000, liquido:50298,  data:'12/04/2026', status:'Antecipado' },
-            { adquirente:'Getnet', bandeira:'Visa',       lote:'L-007', qtd:178, bruto:83200,  comissao:2496,  antecip:0,     liquido:80704,  data:'13/04/2026', status:'Pendente' },
-          ].map((lote, i) => (
-            <div key={i} style={{ background:'#fff', border:'1px solid rgba(0,0,0,0.06)', borderRadius:2, overflow:'hidden' }}>
-              <div style={{ padding:'12px 20px', display:'flex', alignItems:'center', gap:16, borderBottom:'1px solid #f0f0f0' }}>
-                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                  <div style={{ width:6, height:24, borderRadius:2, background: lote.status==='Liquidado'?'#52c41a':lote.status==='Antecipado'?'#fa8c16':'#faad14' }} />
-                  <div>
-                    <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                      <BrandLogo brand={lote.adquirente} />
-                      <span style={{ color:'rgba(0,0,0,0.35)', fontSize:12 }}>—</span>
-                      <BrandLogo brand={lote.bandeira} size={20} showLabel />
-                    </div>
-                    <div style={{ fontSize:11, color:'rgba(0,0,0,0.35)', fontFamily:'Roboto Mono' }}>Lote {lote.lote} · {lote.data}</div>
-                  </div>
-                </div>
-                <div style={{ flex:1, display:'flex', gap:32, justifyContent:'flex-end', alignItems:'center' }}>
-                  {[
-                    { l:'Qtd transações', v:lote.qtd.toLocaleString('pt-BR') },
-                    { l:'Bruto', v:fmt(lote.bruto), c:'rgba(0,0,0,0.85)' },
-                    { l:'Comissão Sub', v:fmt(lote.comissao), c:'#ff4d4f' },
-                    { l:'Antecipação', v:lote.antecip>0?fmt(lote.antecip):'—', c:lote.antecip>0?'#fa8c16':'rgba(0,0,0,0.25)' },
-                    { l:'Líquido', v:fmt(lote.liquido), c:'#52c41a' },
-                  ].map(s=>(
-                    <div key={s.l} style={{ textAlign:'right' }}>
-                      <div style={{ fontSize:11, color:'rgba(0,0,0,0.35)' }}>{s.l}</div>
-                      <div style={{ fontSize:13, fontWeight:600, color:s.c||'rgba(0,0,0,0.65)' }}>{s.v}</div>
-                    </div>
-                  ))}
-                  <AgendaTag status={lote.status} />
-                </div>
+      {tab==='lote' && (()=>{
+        const LOTES_DATA = [
+          { adquirente:'Adiq',   bandeira:'Visa',       lote:'L-001', qtd:412, bruto:198400, comissao:5952,  antecip:0,     liquido:192448, data:'10/04/2026', status:'Liquidado'  },
+          { adquirente:'Adiq',   bandeira:'Mastercard', lote:'L-002', qtd:287, bruto:134200, comissao:4026,  antecip:60000, liquido:70174,  data:'10/04/2026', status:'Antecipado' },
+          { adquirente:'Rede',   bandeira:'Visa',       lote:'L-003', qtd:198, bruto:87500,  comissao:2625,  antecip:0,     liquido:84875,  data:'11/04/2026', status:'Liquidado'  },
+          { adquirente:'Rede',   bandeira:'Elo',        lote:'L-004', qtd:156, bruto:72000,  comissao:2160,  antecip:30000, liquido:39840,  data:'11/04/2026', status:'Antecipado' },
+          { adquirente:'Cielo',  bandeira:'Mastercard', lote:'L-005', qtd:334, bruto:156700, comissao:4701,  antecip:0,     liquido:151999, data:'12/04/2026', status:'Pendente'   },
+          { adquirente:'Cielo',  bandeira:'Visa',       lote:'L-006', qtd:221, bruto:103400, comissao:3102,  antecip:50000, liquido:50298,  data:'12/04/2026', status:'Antecipado' },
+          { adquirente:'Getnet', bandeira:'Visa',       lote:'L-007', qtd:178, bruto:83200,  comissao:2496,  antecip:0,     liquido:80704,  data:'13/04/2026', status:'Pendente'   },
+        ]
+        type LoteRow = typeof LOTES_DATA[0]
+        const loteCols: ColumnType<LoteRow>[] = [
+          { title:'Lote / Adquirente', key:'id', width:220, render: (_,r) => (
+            <div>
+              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                <BrandLogo brand={r.adquirente} />
+                <span style={{ color:'rgba(0,0,0,0.35)', fontSize:12 }}>—</span>
+                <BrandLogo brand={r.bandeira} size={20} showLabel />
               </div>
+              <div style={{ fontSize:11, color:'rgba(0,0,0,0.45)', fontFamily:'Roboto Mono', marginTop:2 }}>Lote {r.lote} · {r.data}</div>
             </div>
-          ))}
-          <div style={{ background:'#e6f7ff', border:'1px solid #91d5ff', borderRadius:2, padding:'12px 20px', display:'flex', gap:32, justifyContent:'flex-end', alignItems:'center' }}>
-            <span style={{ fontSize:13, fontWeight:600, color:'#1890FF', flex:1 }}>TOTAL — 7 lotes · 1.786 transações</span>
-            {[{l:'Total Bruto', v:fmt(835400), c:'rgba(0,0,0,0.85)'},{l:'Total Comissão', v:fmt(25062), c:'#ff4d4f'},{l:'Total Antecipado', v:fmt(140000), c:'#fa8c16'},{l:'Total Líquido', v:fmt(670338), c:'#52c41a'}].map(s=>(
-              <div key={s.l} style={{ textAlign:'right' }}>
-                <div style={{ fontSize:11, color:'rgba(0,0,0,0.45)' }}>{s.l}</div>
-                <div style={{ fontSize:14, fontWeight:700, color:s.c }}>{s.v}</div>
-              </div>
-            ))}
+          )},
+          { title:'Qtd', key:'qtd', dataIndex:'qtd', width:70, render: v => <span style={{ color:'rgba(0,0,0,0.65)' }}>{(v as number).toLocaleString('pt-BR')}</span> },
+          { title:'Bruto', key:'bruto', dataIndex:'bruto', width:130, render: v => <span style={{ color:'rgba(0,0,0,0.85)' }}>{fmt(v as number)}</span> },
+          { title:'Comissão Sub', key:'comissao', dataIndex:'comissao', width:130, render: v => <span style={{ color:'#ff4d4f' }}>{fmt(v as number)}</span> },
+          { title:'Antecipação', key:'antecip', dataIndex:'antecip', width:130, render: v => <span style={{ color:(v as number)>0?'#fa8c16':'rgba(0,0,0,0.25)' }}>{(v as number)>0?fmt(v as number):'—'}</span> },
+          { title:'Líquido', key:'liquido', dataIndex:'liquido', width:130, render: v => <span style={{ fontWeight:600, color:'#52c41a' }}>{fmt(v as number)}</span> },
+          { title:'Status', key:'status', dataIndex:'status', width:110, render: v => <Tag status={v as string} /> },
+        ]
+        return (
+          <div style={{ padding:24, display:'flex', flexDirection:'column', gap:12 }}>
+            <DataTable<LoteRow>
+              title="Lotes de liquidação — Abril 2026"
+              columns={loteCols}
+              dataSource={LOTES_DATA}
+              rowKey="lote"
+              showPagination={false}
+              searchPlaceholder="Buscar por adquirente, bandeira, lote..."
+              filters={[
+                { label:'Adquirente', options:[{label:'Adiq',value:'Adiq'},{label:'Rede',value:'Rede'},{label:'Cielo',value:'Cielo'},{label:'Getnet',value:'Getnet'}], value:[], onChange:()=>{} },
+                { label:'Bandeira', options:[{label:'Visa',value:'Visa'},{label:'Mastercard',value:'Mastercard'},{label:'Elo',value:'Elo'}], value:[], onChange:()=>{} },
+              ]}
+              onExport={()=>{}}
+              periodOptions={PERIOD_OPTIONS}
+              defaultPeriod="hoje"
+            />
+            <div style={{ background:'#e6f7ff', border:'1px solid #91d5ff', borderRadius:2, padding:'12px 20px', display:'flex', gap:32, justifyContent:'flex-end', alignItems:'center' }}>
+              <span style={{ fontSize:13, fontWeight:600, color:'#1890FF', flex:1 }}>TOTAL — 7 lotes · 1.786 transações</span>
+              {[
+                {l:'Total Bruto',      v:fmt(835400),  c:'rgba(0,0,0,0.85)'},
+                {l:'Total Comissão',   v:fmt(25062),   c:'#ff4d4f'},
+                {l:'Total Antecipado', v:fmt(140000),  c:'#fa8c16'},
+                {l:'Total Líquido',    v:fmt(670338),  c:'#52c41a'},
+              ].map(s=>(
+                <div key={s.l} style={{ textAlign:'right' }}>
+                  <div style={{ fontSize:11, color:'rgba(0,0,0,0.45)' }}>{s.l}</div>
+                  <div style={{ fontSize:14, fontWeight:700, color:s.c }}>{s.v}</div>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* ── ANTECIPAÇÕES TAB ── */}
+      {/* Antecipações = o que o sub-adquirente emprestou/antecipou AOS merchants (ECs). */}
+      {/* O sub adianta o dinheiro ao EC e desconta gradualmente nos próximos repasses. */}
       {tab==='antecipacoes' && (()=>{
         const ANTECIP_DATA = [
-          { data:'02/04/2026', adq:'Adiq',   valor:60000, taxa:'1,99%', custo:1194, prazo:'30d', saldo:60000, status:'Em aberto' },
-          { data:'05/04/2026', adq:'Rede',   valor:30000, taxa:'2,10%', custo:630,  prazo:'30d', saldo:30000, status:'Em aberto' },
-          { data:'08/04/2026', adq:'Cielo',  valor:50000, taxa:'1,95%', custo:975,  prazo:'30d', saldo:50000, status:'Em aberto' },
-          { data:'15/03/2026', adq:'Adiq',   valor:40000, taxa:'1,99%', custo:796,  prazo:'30d', saldo:0,     status:'Quitado' },
-          { data:'10/03/2026', adq:'Getnet', valor:25000, taxa:'2,05%', custo:512,  prazo:'30d', saldo:0,     status:'Quitado' },
+          { data:'02/04/2026', ec:'Mercado Livre',   valor:60000, taxa:'1,99%', receita:1194, prazo:'30d', saldo:60000, status:'Em aberto' },
+          { data:'05/04/2026', ec:'Amazon Brasil',   valor:30000, taxa:'2,10%', receita:630,  prazo:'30d', saldo:30000, status:'Em aberto' },
+          { data:'08/04/2026', ec:'Americanas S.A.', valor:50000, taxa:'1,95%', receita:975,  prazo:'30d', saldo:50000, status:'Em aberto' },
+          { data:'15/03/2026', ec:'Magazine Luiza',  valor:40000, taxa:'1,99%', receita:796,  prazo:'30d', saldo:0,     status:'Quitado' },
+          { data:'10/03/2026', ec:'iFood Ltda',      valor:25000, taxa:'2,05%', receita:512,  prazo:'30d', saldo:0,     status:'Quitado' },
         ]
         type ARow = typeof ANTECIP_DATA[0]
         const cols: ColumnType<ARow>[] = [
           { title:'Data', dataIndex:'data', key:'data', width:110, render: v => <span style={{ color:'rgba(0,0,0,0.65)' }}>{v}</span> },
-          { title:'Adquirente', dataIndex:'adq', key:'adq', render: v => <BrandLogo brand={v} /> },
-          { title:'Valor antecipado', dataIndex:'valor', key:'valor', render: v => <span style={{ fontWeight:600, color:'#fa8c16' }}>{fmt(v)}</span> },
-          { title:'Taxa (a.m.)', dataIndex:'taxa', key:'taxa', width:90, render: v => <span style={{ color:'rgba(0,0,0,0.65)' }}>{v}</span> },
-          { title:'Custo', dataIndex:'custo', key:'custo', render: v => <span style={{ color:'#ff4d4f' }}>{fmt(v)}</span> },
+          { title:'Merchant (EC)', dataIndex:'ec', key:'ec', render: v => <span style={{ fontWeight:500, color:'rgba(0,0,0,0.85)' }}>{v}</span> },
+          { title:'Valor antecipado ao EC', dataIndex:'valor', key:'valor', render: v => <span style={{ fontWeight:600, color:'#fa8c16' }}>{fmt(v)}</span> },
+          { title:'Taxa cobrada (a.m.)', dataIndex:'taxa', key:'taxa', width:130, render: v => <span style={{ color:'rgba(0,0,0,0.65)' }}>{v}</span> },
+          { title:'Receita (juros)', dataIndex:'receita', key:'receita', render: v => <span style={{ color:'#52c41a', fontWeight:500 }}>{fmt(v)}</span> },
           { title:'Prazo', dataIndex:'prazo', key:'prazo', width:70, render: v => <span style={{ color:'rgba(0,0,0,0.65)' }}>{v}</span> },
-          { title:'Saldo restante', dataIndex:'saldo', key:'saldo', render: v => <span style={{ fontWeight:600, color:v>0?'#fa8c16':'rgba(0,0,0,0.25)' }}>{v>0?fmt(v):'—'}</span> },
-          { title:'Status', dataIndex:'status', key:'status', width:100, render: v => <AgendaTag status={v==='Em aberto'?'Pendente':'Pago'} /> },
+          { title:'Saldo devedor do EC', dataIndex:'saldo', key:'saldo', render: v => <span style={{ fontWeight:600, color:v>0?'#fa8c16':'rgba(0,0,0,0.25)' }}>{v>0?fmt(v):'Quitado'}</span> },
+          { title:'Status', dataIndex:'status', key:'status', width:100, render: v => <Tag status={v} /> },
         ]
         return (
           <div style={{ padding:24, display:'flex', flexDirection:'column', gap:16 }}>
-            <div style={{ background:'#fffbe6', border:'1px solid #ffe58f', borderRadius:2, padding:'10px 16px', display:'flex', gap:10, alignItems:'flex-start' }}>
-              <Icon name="info" size={15} color="#faad14" />
-              <div>
-                <span style={{ fontSize:13, fontWeight:500, color:'rgba(0,0,0,0.85)' }}>Liquidação centralizada ativa: </span>
-                <span style={{ fontSize:13, color:'rgba(0,0,0,0.65)' }}>os valores antecipados serão descontados automaticamente nos próximos créditos do adquirente. Saldo restante: <strong>R$ 140.000,00</strong></span>
+            {!dismissed.has('banner-antecip') && (
+              <div style={{ background:'#fff7e6', border:'1px solid #ffd591', borderRadius:2, padding:'10px 16px', display:'flex', gap:10, alignItems:'flex-start', position:'relative' }}>
+                <Icon name="info" size={15} color="#fa8c16" />
+                <div style={{ flex:1, paddingRight:20 }}>
+                  <span style={{ fontSize:13, fontWeight:500, color:'rgba(0,0,0,0.85)' }}>Antecipações a merchants: </span>
+                  <span style={{ fontSize:13, color:'rgba(0,0,0,0.65)' }}>O sub-adquirente adianta o valor ao EC e desconta gradualmente nos próximos repasses. Saldo em aberto: <strong>R$ 140.000,00</strong></span>
+                </div>
+                <button onClick={() => dismiss('banner-antecip')} title="Fechar" style={{ position:'absolute', top:8, right:10, border:'none', background:'none', cursor:'pointer', color:'rgba(0,0,0,0.25)', display:'flex', alignItems:'center', padding:4, borderRadius:2 }}>
+                  <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
               </div>
-            </div>
+            )}
             <DataTable<ARow>
-              title="Operações de antecipação"
+              title="Antecipações a merchants (ECs)"
               titleExtra={<button style={{ border:'none', background:'#1890FF', color:'#fff', borderRadius:2, padding:'4px 14px', fontSize:13, cursor:'pointer', display:'flex', alignItems:'center', gap:6 }}><Icon name="plus" size={14} color="#fff" /> Nova antecipação</button>}
               columns={cols}
               dataSource={ANTECIP_DATA}
               rowKey={(_,i)=>String(i)}
+              periodOptions={PERIOD_OPTIONS}
+              defaultPeriod="mes"
             />
           </div>
         )
       })()}
 
       {/* ── FUNDING / LIQUIDAÇÃO TAB ── */}
+      {/* Funding = créditos recebidos dos adquirentes (Adiq, Rede, Cielo, Getnet). */}
+      {/* Inclui créditos normais e descontos de antecipações tomadas pelo sub junto ao adquirente. */}
       {tab==='funding' && (
         <div style={{ padding:24, display:'flex', flexDirection:'column', gap:16 }}>
+          {!dismissed.has('banner-funding') && (
+            <div style={{ background:'#e6f7ff', border:'1px solid #91d5ff', borderRadius:2, padding:'10px 16px', display:'flex', gap:10, alignItems:'flex-start', position:'relative' }}>
+              <Icon name="info" size={15} color="#1890FF" />
+              <div style={{ flex:1, paddingRight:20 }}>
+                <span style={{ fontSize:13, fontWeight:500, color:'rgba(0,0,0,0.85)' }}>Funding de adquirentes: </span>
+                <span style={{ fontSize:13, color:'rgba(0,0,0,0.65)' }}>Créditos recebidos dos adquirentes (Adiq, Rede, Cielo, Getnet). Antecipações tomadas são abatidas automaticamente nos próximos créditos.</span>
+              </div>
+              <button onClick={() => dismiss('banner-funding')} title="Fechar" style={{ position:'absolute', top:8, right:10, border:'none', background:'none', cursor:'pointer', color:'rgba(0,0,0,0.25)', display:'flex', alignItems:'center', padding:4, borderRadius:2 }}>
+                <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+          )}
           <div style={{ display:'flex', gap:16 }}>
-            <div style={{ flex:2, background:'#fff', border:'1px solid rgba(0,0,0,0.06)', borderRadius:2, padding:'20px 24px' }}>
-              <div style={{ fontSize:14, fontWeight:600, color:'rgba(0,0,0,0.85)', marginBottom:16 }}>DRE de Caixa — Abril 2026</div>
+            <div style={{ flex:2, background:'#fff', border:'1px solid rgba(0,0,0,0.06)', borderRadius:2, overflow:'hidden' }}>
+              <div style={{ padding:'16px 24px', borderBottom:'1px solid #f0f0f0' }}>
+                <div style={{ fontSize:14, fontWeight:600, color:'rgba(0,0,0,0.85)' }}>Fluxo de Caixa com Adquirentes — Abril 2026</div>
+                <div style={{ fontSize:12, color:'rgba(0,0,0,0.45)', marginTop:2 }}>Entradas dos adquirentes, descontos de antecipações tomadas e custo de processamento</div>
+              </div>
+              <div style={{ padding:'16px 24px' }}>
               {[
                 { label:'(+) Total bruto das vendas',                   v:fmt(1240500), indent:0, weight:500, color:'rgba(0,0,0,0.85)' },
                 { label:'(−) Antecipações tomadas (saldo devedor)',      v:`(${fmt(140000)})`, indent:1, color:'#fa8c16' },
@@ -783,10 +847,14 @@ export default function AgendaPage() {
                   <span style={{ fontSize:13, fontWeight:r.weight||500, color:r.color||'rgba(0,0,0,0.85)', whiteSpace:'nowrap' }}>{r.v}</span>
                 </div>
               ))}
+              </div>
             </div>
             <div style={{ flex:1, display:'flex', flexDirection:'column', gap:16 }}>
-              <div style={{ background:'#fff', border:'1px solid rgba(0,0,0,0.06)', borderRadius:2, padding:'16px 20px' }}>
-                <div style={{ fontSize:13, fontWeight:500, color:'rgba(0,0,0,0.85)', marginBottom:12 }}>Liquidações por adquirente</div>
+              <div style={{ background:'#fff', border:'1px solid rgba(0,0,0,0.06)', borderRadius:2, overflow:'hidden' }}>
+                <div style={{ padding:'12px 20px', borderBottom:'1px solid #f0f0f0' }}>
+                  <div style={{ fontSize:13, fontWeight:600, color:'rgba(0,0,0,0.85)' }}>Liquidações por adquirente</div>
+                </div>
+                <div style={{ padding:'16px 20px' }}>
                 {[
                   { adq:'Adiq',   pct:42, v:fmt(521010), c:'#1890FF' },
                   { adq:'Rede',   pct:28, v:fmt(347340), c:'#52c41a' },
@@ -803,9 +871,13 @@ export default function AgendaPage() {
                     </div>
                   </div>
                 ))}
+                </div>
               </div>
-              <div style={{ background:'#fff', border:'1px solid rgba(0,0,0,0.06)', borderRadius:2, padding:'16px 20px' }}>
-                <div style={{ fontSize:13, fontWeight:500, color:'rgba(0,0,0,0.85)', marginBottom:12 }}>Funding previsto (próx. 7 dias)</div>
+              <div style={{ background:'#fff', border:'1px solid rgba(0,0,0,0.06)', borderRadius:2, overflow:'hidden' }}>
+                <div style={{ padding:'12px 20px', borderBottom:'1px solid #f0f0f0' }}>
+                  <div style={{ fontSize:13, fontWeight:600, color:'rgba(0,0,0,0.85)' }}>Funding previsto (próx. 7 dias)</div>
+                </div>
+                <div style={{ padding:'16px 20px' }}>
                 {['24/04','25/04','26/04','27/04','28/04'].map((d,i)=>{
                   const val = [82000,54000,128000,43000,95000][i]
                   return (
@@ -818,6 +890,7 @@ export default function AgendaPage() {
                     </div>
                   )
                 })}
+                </div>
               </div>
             </div>
           </div>
@@ -835,19 +908,21 @@ export default function AgendaPage() {
             const cols: ColumnType<FRow>[] = [
               { title:'Data', dataIndex:'data', key:'data', width:70, render: v => <span style={{ color:'rgba(0,0,0,0.65)' }}>{v}/2026</span> },
               { title:'Adquirente', dataIndex:'adq', key:'adq', render: v => <BrandLogo brand={v} /> },
-              { title:'Tipo', dataIndex:'tipo', key:'tipo', render: v => <span style={{ fontSize:11, background:v.includes('Desconto')?'#fff7e6':'#e6f7ff', color:v.includes('Desconto')?'#fa8c16':'#1890FF', border:`1px solid ${v.includes('Desconto')?'#ffd591':'#91d5ff'}`, borderRadius:2, padding:'1px 6px' }}>{v}</span> },
+              { title:'Tipo de crédito', dataIndex:'tipo', key:'tipo', render: v => <span style={{ fontSize:11, background:v.includes('Desconto')?'#fff7e6':'#e6f7ff', color:v.includes('Desconto')?'#fa8c16':'#1890FF', border:`1px solid ${v.includes('Desconto')?'#ffd591':'#91d5ff'}`, borderRadius:2, padding:'1px 6px' }}>{v.includes('Desconto')?'Desconto de antecipação tomada':'Crédito normal'}</span> },
               { title:'Bruto do lote', dataIndex:'bruto', key:'bruto', render: v => <span style={{ color:'rgba(0,0,0,0.85)' }}>{fmt(v)}</span> },
-              { title:'Descontos', dataIndex:'desc', key:'desc', render: v => <span style={{ color:'#ff4d4f' }}>{fmt(v)}</span> },
+              { title:'Descontos (MDR + antecip.)', dataIndex:'desc', key:'desc', render: v => <span style={{ color:'#ff4d4f' }}>{fmt(v)}</span> },
               { title:'Crédito líquido', dataIndex:'cred', key:'cred', render: v => <span style={{ fontWeight:600, color:'#52c41a' }}>{fmt(v)}</span> },
               { title:'Conta destino', dataIndex:'conta', key:'conta', render: v => <span style={{ color:'rgba(0,0,0,0.45)', fontFamily:'Roboto Mono', fontSize:11 }}>{v}</span> },
-              { title:'Status', dataIndex:'status', key:'status', width:90, render: v => <AgendaTag status={v==='Liquidado'?'Pago':'Pendente'} /> },
+              { title:'Status', dataIndex:'status', key:'status', width:90, render: v => <Tag status={v} /> },
             ]
             return (
               <DataTable<FRow>
-                title="Eventos de liquidação — Abril 2026"
+                title="Créditos recebidos dos adquirentes — Abril 2026"
                 columns={cols}
                 dataSource={FUNDING_EVENTOS}
                 rowKey={(_,i)=>String(i)}
+                periodOptions={PERIOD_OPTIONS}
+                defaultPeriod="mes"
               />
             )
           })()}
@@ -874,16 +949,44 @@ export default function AgendaPage() {
           { title:'Taxas retidas', dataIndex:'taxa', key:'taxa', render: v => <span style={{ color:'#ff4d4f' }}>{fmt(v)}</span> },
           { title:'Valor repassado', dataIndex:'rep', key:'rep', render: v => <span style={{ fontWeight:600, color:'#52c41a' }}>{fmt(v)}</span> },
           { title:'Conta destino', dataIndex:'conta', key:'conta', render: v => <span style={{ fontFamily:'Roboto Mono', fontSize:11, color:'rgba(0,0,0,0.45)' }}>{v}</span> },
-          { title:'Status', dataIndex:'status', key:'status', width:90, render: v => <AgendaTag status={v} /> },
+          { title:'Status', dataIndex:'status', key:'status', width:90, render: v => <Tag status={v} /> },
         ]
         return (
         <div style={{ padding:24, display:'flex', flexDirection:'column', gap:16 }}>
+          {/* Política de repasse e reserva */}
+          <div style={{ display:'flex', gap:16 }}>
+            {!dismissed.has('banner-pagamentos') && (
+              <div style={{ flex:1, background:'#f6ffed', border:'1px solid #b7eb8f', borderRadius:2, padding:'10px 16px', display:'flex', gap:10, alignItems:'flex-start', position:'relative' }}>
+                <Icon name="info" size={15} color="#52c41a" />
+                <div style={{ flex:1, paddingRight:20 }}>
+                  <span style={{ fontSize:13, fontWeight:500, color:'rgba(0,0,0,0.85)' }}>Política de repasse: </span>
+                  <span style={{ fontSize:13, color:'rgba(0,0,0,0.65)' }}>D+1 útil para débito e PIX · D+14 para crédito à vista · D+30/parcela para parcelado.</span>
+                </div>
+                <button onClick={() => dismiss('banner-pagamentos')} title="Fechar" style={{ position:'absolute', top:8, right:10, border:'none', background:'none', cursor:'pointer', color:'rgba(0,0,0,0.25)', display:'flex', alignItems:'center', padding:4, borderRadius:2 }}>
+                  <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </div>
+            )}
+            <div style={{ background:'#fff', border:'1px solid rgba(0,0,0,0.06)', borderRadius:2, padding:'10px 20px', display:'flex', gap:20, alignItems:'center', flexShrink:0 }}>
+              <div>
+                <div style={{ fontSize:11, color:'rgba(0,0,0,0.45)' }}>Reserva operacional (rolling reserve)</div>
+                <div style={{ fontSize:16, fontWeight:700, color:'#722ED1' }}>R$ 43.200,00</div>
+              </div>
+              <div style={{ width:1, height:32, background:'#f0f0f0' }} />
+              <div>
+                <div style={{ fontSize:11, color:'rgba(0,0,0,0.45)' }}>Retenção aplicada</div>
+                <div style={{ fontSize:14, fontWeight:600, color:'rgba(0,0,0,0.65)' }}>3% · libera em 90d</div>
+              </div>
+            </div>
+          </div>
           <DataTable<PRow>
             title="Repasses a merchants — Abril 2026"
-            titleExtra={<button style={{ border:'1px solid #d9d9d9', background:'#fff', borderRadius:2, padding:'4px 14px', fontSize:13, cursor:'pointer', display:'flex', alignItems:'center', gap:6, color:'rgba(0,0,0,0.85)' }}><Icon name="download" size={13} color="rgba(0,0,0,0.45)" /> Exportar</button>}
             columns={cols}
             dataSource={PAGAMENTOS_DATA}
             rowKey={(_,i)=>String(i)}
+            onExport={()=>{}}
+            periodOptions={PERIOD_OPTIONS}
+            defaultPeriod="mes"
           />
         </div>
         )

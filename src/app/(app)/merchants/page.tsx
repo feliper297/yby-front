@@ -104,21 +104,6 @@ export default function MerchantsPage() {
       } />
 
       <div style={{ padding:24, display:'flex', flexDirection:'column', gap:16 }}>
-        {/* KPI strip */}
-        <div style={{ display:'flex', gap:16 }}>
-          {[
-            { l:'Total',     v: MERCHANTS.length },
-            { l:'Ativos',    v: MERCHANTS.filter(m=>m.status==='Ativo').length },
-            { l:'Suspensos', v: MERCHANTS.filter(m=>m.status==='Suspenso').length },
-            { l:'Inativos',  v: MERCHANTS.filter(m=>m.status==='Inativo').length },
-          ].map(s => (
-            <div key={s.l} style={{ flex:1, background:'#fff', border:'1px solid rgba(0,0,0,0.06)', borderRadius:2, padding:'14px 20px' }}>
-              <div style={{ fontSize:12, color:'rgba(0,0,0,0.45)', marginBottom:4 }}>{s.l}</div>
-              <div style={{ fontSize:24, fontWeight:600, color:'rgba(0,0,0,0.85)' }}>{s.v}</div>
-            </div>
-          ))}
-        </div>
-
         <DataTable<Merchant>
           columns={columns}
           dataSource={filtered}

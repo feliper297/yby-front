@@ -12,21 +12,49 @@ const fmt = (v: number) => 'R$ ' + v.toLocaleString('pt-BR', { minimumFractionDi
 const MONTHS = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
 
 const PARCELAS_DATA = [
-  { data:'10/04/2026', nsu:'183726402', bandeira:'Visa',   lancamento:'Crédito à vista',   parcela:'1/1', valor:10.00,    comissao:0.30,   antecipDescontada:0,        liquido:9.70,    antecipado:false, status:'Pago' },
-  { data:'10/04/2026', nsu:'209874928', bandeira:'Visa',   lancamento:'Crédito parcelado', parcela:'2/3', valor:200.00,   comissao:6.00,   antecipDescontada:0,        liquido:194.00,  antecipado:true,  status:'Pago' },
-  { data:'10/04/2026', nsu:'109837229', bandeira:'Elo',    lancamento:'Débito',            parcela:'1/1', valor:2000.00,  comissao:50.00,  antecipDescontada:0,        liquido:1950.00, antecipado:false, status:'Pendente' },
-  { data:'11/04/2026', nsu:'987638643', bandeira:'Master', lancamento:'Crédito parcelado', parcela:'4/6', valor:20000.00, comissao:600.00, antecipDescontada:50000.00, liquido:19400.00,antecipado:true,  status:'Antecipado' },
-  { data:'11/04/2026', nsu:'290838372', bandeira:'Visa',   lancamento:'Crédito à vista',   parcela:'1/1', valor:50.00,   comissao:1.50,   antecipDescontada:0,        liquido:48.50,   antecipado:false, status:'Chargeback' },
-  { data:'12/04/2026', nsu:'334872910', bandeira:'Master', lancamento:'Crédito à vista',   parcela:'1/1', valor:1500.00,  comissao:45.00,  antecipDescontada:0,        liquido:1455.00, antecipado:false, status:'Pago' },
-  { data:'12/04/2026', nsu:'445983021', bandeira:'Elo',    lancamento:'Crédito parcelado', parcela:'1/4', valor:800.00,   comissao:24.00,  antecipDescontada:5000.00,  liquido:776.00,  antecipado:true,  status:'Antecipado' },
-  { data:'13/04/2026', nsu:'556094132', bandeira:'Visa',   lancamento:'Débito',            parcela:'1/1', valor:350.00,   comissao:10.50,  antecipDescontada:0,        liquido:339.50,  antecipado:false, status:'Pago' },
-  { data:'14/04/2026', nsu:'667205243', bandeira:'Master', lancamento:'Crédito parcelado', parcela:'3/6', valor:5000.00,  comissao:150.00, antecipDescontada:0,        liquido:4850.00, antecipado:false, status:'Pendente' },
-  { data:'15/04/2026', nsu:'778316354', bandeira:'Visa',   lancamento:'Crédito à vista',   parcela:'1/1', valor:125.00,   comissao:3.75,   antecipDescontada:0,        liquido:121.25,  antecipado:false, status:'Pago' },
-  { data:'16/04/2026', nsu:'889427465', bandeira:'Elo',    lancamento:'Crédito parcelado', parcela:'2/6', valor:3200.00,  comissao:96.00,  antecipDescontada:0,        liquido:3104.00, antecipado:false, status:'Pago' },
-  { data:'17/04/2026', nsu:'990538576', bandeira:'Visa',   lancamento:'Crédito parcelado', parcela:'1/12',valor:8000.00,  comissao:240.00, antecipDescontada:30000.00, liquido:7760.00, antecipado:true,  status:'Antecipado' },
-  { data:'18/04/2026', nsu:'112649687', bandeira:'Master', lancamento:'Débito',            parcela:'1/1', valor:450.00,   comissao:13.50,  antecipDescontada:0,        liquido:436.50,  antecipado:false, status:'Pago' },
-  { data:'19/04/2026', nsu:'223750798', bandeira:'Visa',   lancamento:'Crédito à vista',   parcela:'1/1', valor:78.00,    comissao:2.34,   antecipDescontada:0,        liquido:75.66,   antecipado:false, status:'Pago' },
-  { data:'20/04/2026', nsu:'334861809', bandeira:'Elo',    lancamento:'Crédito parcelado', parcela:'3/3', valor:600.00,   comissao:18.00,  antecipDescontada:0,        liquido:582.00,  antecipado:false, status:'Pendente' },
+  // ── Americanas / Adiq / Visa ──────────────────────────────────────────────
+  { data:'05/04/2026', nsu:'183726401', adq:'Adiq',   ec:'Americanas S.A.', bandeira:'Visa',   lancamento:'Crédito à vista',   parcela:'1/1',  valor:450.00,  comissao:9.90,  antecipDescontada:0,       liquido:440.10,  antecipado:false, status:'Pago'       },
+  // Venda 6x — parcelas 2 e 3 antecipadas (operação R$ 2.166,65)
+  { data:'05/04/2026', nsu:'293847562', adq:'Adiq',   ec:'Americanas S.A.', bandeira:'Visa',   lancamento:'Crédito parcelado', parcela:'2/6',  valor:433.33,  comissao:12.57, antecipDescontada:2166.65, liquido:420.76,  antecipado:true,  status:'Antecipado' },
+  { data:'10/04/2026', nsu:'293847562', adq:'Adiq',   ec:'Americanas S.A.', bandeira:'Visa',   lancamento:'Crédito parcelado', parcela:'3/6',  valor:433.33,  comissao:12.57, antecipDescontada:2166.65, liquido:420.76,  antecipado:true,  status:'Antecipado' },
+  // ── Amazon / Rede / Visa ──────────────────────────────────────────────────
+  // Notebook 12x — parcelas 4 e 5 antecipadas (operação R$ 4.050,00; MDR 7–12x)
+  { data:'05/04/2026', nsu:'374958673', adq:'Rede',   ec:'Amazon Brasil',   bandeira:'Visa',   lancamento:'Crédito parcelado', parcela:'4/12', valor:450.00,  comissao:15.30, antecipDescontada:4050.00, liquido:434.70,  antecipado:true,  status:'Antecipado' },
+  { data:'09/04/2026', nsu:'374958673', adq:'Rede',   ec:'Amazon Brasil',   bandeira:'Visa',   lancamento:'Crédito parcelado', parcela:'5/12', valor:450.00,  comissao:15.30, antecipDescontada:4050.00, liquido:434.70,  antecipado:true,  status:'Antecipado' },
+  // ── Rappi / Adiq / Elo ────────────────────────────────────────────────────
+  { data:'07/04/2026', nsu:'456071829', adq:'Adiq',   ec:'Rappi Brasil',    bandeira:'Elo',    lancamento:'Débito',            parcela:'1/1',  valor:89.90,   comissao:1.48,  antecipDescontada:0,       liquido:88.42,   antecipado:false, status:'Pago'       },
+  // ── Magazine Luiza / Rede / Master ────────────────────────────────────────
+  // Geladeira 6x — parcela 3 paga; 4 e 5 antecipadas (operação R$ 1.197,00)
+  { data:'07/04/2026', nsu:'567182930', adq:'Rede',   ec:'Magazine Luiza',  bandeira:'Master', lancamento:'Crédito parcelado', parcela:'3/6',  valor:399.00,  comissao:11.77, antecipDescontada:0,       liquido:387.23,  antecipado:false, status:'Pago'       },
+  { data:'13/04/2026', nsu:'567182930', adq:'Rede',   ec:'Magazine Luiza',  bandeira:'Master', lancamento:'Crédito parcelado', parcela:'4/6',  valor:399.00,  comissao:11.77, antecipDescontada:1197.00, liquido:387.23,  antecipado:true,  status:'Antecipado' },
+  { data:'18/04/2026', nsu:'567182930', adq:'Rede',   ec:'Magazine Luiza',  bandeira:'Master', lancamento:'Crédito parcelado', parcela:'5/6',  valor:399.00,  comissao:11.77, antecipDescontada:1197.00, liquido:387.23,  antecipado:true,  status:'Antecipado' },
+  // ── Shopee / Rede / Master ────────────────────────────────────────────────
+  { data:'08/04/2026', nsu:'678293041', adq:'Rede',   ec:'Shopee Brasil',   bandeira:'Master', lancamento:'Crédito à vista',   parcela:'1/1',  valor:1200.00, comissao:27.00, antecipDescontada:0,       liquido:1173.00, antecipado:false, status:'Pago'       },
+  // iPhone 12x — parcela 7 com chargeback em disputa
+  { data:'09/04/2026', nsu:'789304152', adq:'Rede',   ec:'Shopee Brasil',   bandeira:'Master', lancamento:'Crédito parcelado', parcela:'7/12', valor:399.17,  comissao:13.97, antecipDescontada:0,       liquido:385.20,  antecipado:false, status:'Chargeback' },
+  // ── Mercado Livre / Cielo / Elo ───────────────────────────────────────────
+  // Smart TV 4x — parcela 1 paga; 2 e 3 antecipadas (operação R$ 1.874,25)
+  { data:'08/04/2026', nsu:'890415263', adq:'Cielo',  ec:'Mercado Livre',   bandeira:'Elo',    lancamento:'Crédito parcelado', parcela:'1/4',  valor:624.75,  comissao:19.37, antecipDescontada:0,       liquido:605.38,  antecipado:false, status:'Pago'       },
+  { data:'12/04/2026', nsu:'890415263', adq:'Cielo',  ec:'Mercado Livre',   bandeira:'Elo',    lancamento:'Crédito parcelado', parcela:'2/4',  valor:624.75,  comissao:19.37, antecipDescontada:1874.25, liquido:605.38,  antecipado:true,  status:'Antecipado' },
+  { data:'15/04/2026', nsu:'890415263', adq:'Cielo',  ec:'Mercado Livre',   bandeira:'Elo',    lancamento:'Crédito parcelado', parcela:'3/4',  valor:624.75,  comissao:19.37, antecipDescontada:1874.25, liquido:605.38,  antecipado:true,  status:'Antecipado' },
+  // ── iFood / Cielo / Elo ───────────────────────────────────────────────────
+  { data:'08/04/2026', nsu:'901526374', adq:'Cielo',  ec:'iFood Ltda',      bandeira:'Elo',    lancamento:'Débito',            parcela:'1/1',  valor:230.00,  comissao:3.80,  antecipDescontada:0,       liquido:226.20,  antecipado:false, status:'Pago'       },
+  // Ar-cond 12x — parcela 8 pendente; 9 antecipada (operação R$ 833,00; MDR 7–12x)
+  { data:'11/04/2026', nsu:'102637485', adq:'Cielo',  ec:'Americanas S.A.', bandeira:'Elo',    lancamento:'Crédito parcelado', parcela:'8/12', valor:208.25,  comissao:7.71,  antecipDescontada:0,       liquido:200.54,  antecipado:false, status:'Pendente'   },
+  { data:'14/04/2026', nsu:'102637485', adq:'Cielo',  ec:'Americanas S.A.', bandeira:'Elo',    lancamento:'Crédito parcelado', parcela:'9/12', valor:208.25,  comissao:7.71,  antecipDescontada:833.00,  liquido:200.54,  antecipado:true,  status:'Antecipado' },
+  // ── Netshoes / Getnet / Visa ──────────────────────────────────────────────
+  { data:'10/04/2026', nsu:'213748596', adq:'Getnet', ec:'Netshoes',        bandeira:'Visa',   lancamento:'Crédito à vista',   parcela:'1/1',  valor:78.00,   comissao:1.72,  antecipDescontada:0,       liquido:76.28,   antecipado:false, status:'Pago'       },
+  // ── Shopee / Getnet / Visa ────────────────────────────────────────────────
+  // Câmera 6x — parcelas 2 e 3 pagas; 4 pendente (sem antecipação)
+  { data:'10/04/2026', nsu:'324859607', adq:'Getnet', ec:'Shopee Brasil',   bandeira:'Visa',   lancamento:'Crédito parcelado', parcela:'2/6',  valor:299.83,  comissao:8.70,  antecipDescontada:0,       liquido:291.13,  antecipado:false, status:'Pago'       },
+  { data:'14/04/2026', nsu:'324859607', adq:'Getnet', ec:'Shopee Brasil',   bandeira:'Visa',   lancamento:'Crédito parcelado', parcela:'3/6',  valor:299.83,  comissao:8.70,  antecipDescontada:0,       liquido:291.13,  antecipado:false, status:'Pago'       },
+  { data:'17/04/2026', nsu:'324859607', adq:'Getnet', ec:'Shopee Brasil',   bandeira:'Visa',   lancamento:'Crédito parcelado', parcela:'4/6',  valor:299.83,  comissao:8.70,  antecipDescontada:0,       liquido:291.13,  antecipado:false, status:'Pendente'   },
+  // ── iFood / Getnet / Visa ─────────────────────────────────────────────────
+  // Assinatura 12x — parcela 11 pendente; 12 antecipada (operação R$ 950,00)
+  { data:'10/04/2026', nsu:'435960718', adq:'Getnet', ec:'iFood Ltda',      bandeira:'Visa',   lancamento:'Crédito parcelado', parcela:'11/12',valor:475.00,  comissao:16.15, antecipDescontada:0,       liquido:458.85,  antecipado:false, status:'Pendente'   },
+  { data:'15/04/2026', nsu:'435960718', adq:'Getnet', ec:'iFood Ltda',      bandeira:'Visa',   lancamento:'Crédito parcelado', parcela:'12/12',valor:475.00,  comissao:16.15, antecipDescontada:950.00,  liquido:458.85,  antecipado:true,  status:'Antecipado' },
+  // ── Mercado Livre / Getnet / Visa ─────────────────────────────────────────
+  { data:'13/04/2026', nsu:'547071829', adq:'Getnet', ec:'Mercado Livre',   bandeira:'Visa',   lancamento:'Débito',            parcela:'1/1',  valor:350.00,  comissao:5.25,  antecipDescontada:0,       liquido:344.75,  antecipado:false, status:'Pago'       },
 ]
 
 const STATUS_STYLE: Record<string, { bg: string; color: string; border: string }> = {
@@ -113,12 +141,17 @@ export default function AgendaPage() {
   const filtered = PARCELAS_DATA.filter(r =>
     (!filterBandeira || r.bandeira===filterBandeira) &&
     (!filterStatus   || r.status===filterStatus) &&
-    (!search || r.nsu.includes(search) || r.bandeira.toLowerCase().includes(search.toLowerCase()) || r.lancamento.toLowerCase().includes(search.toLowerCase()))
+    (!search || r.nsu.includes(search) || r.ec.toLowerCase().includes(search.toLowerCase()) || r.bandeira.toLowerCase().includes(search.toLowerCase()) || r.lancamento.toLowerCase().includes(search.toLowerCase()))
   )
 
   const kpiData = (filterBandeira || filterStatus || search) ? filtered : PARCELAS_DATA
   const totalBruto    = kpiData.reduce((s,r)=>s+r.valor,0)
-  const totalAntecip  = kpiData.reduce((s,r)=>s+r.antecipDescontada,0)
+  // Deduplica por NSU para evitar double-count de operações com múltiplas parcelas
+  const totalAntecip  = (() => {
+    const seen: Record<string,number> = {}
+    kpiData.forEach(r => { if (r.antecipado && r.antecipDescontada > 0) seen[r.nsu] = Math.max(seen[r.nsu]||0, r.antecipDescontada) })
+    return Object.values(seen).reduce((s,v)=>s+v,0)
+  })()
   const totalComissao = kpiData.reduce((s,r)=>s+r.comissao,0)
   const totalLiquido  = kpiData.reduce((s,r)=>s+r.liquido,0)
   const pipelineFuturo = 1247350.00
@@ -134,7 +167,7 @@ export default function AgendaPage() {
     detalhada: [
       { label:'Total de parcelas', value:String(PARCELAS_DATA.length), bg:'#e6f7ff', border:'#91d5ff', color:'#1890FF', sub:'No período filtrado' },
       { label:'Valor bruto total', value:fmt(totalBruto), bg:'#f5f5f5', border:'#d9d9d9', color:'rgba(0,0,0,0.85)', sub:'Soma de todas as parcelas' },
-      { label:'Parcelas antecipadas', value:String(PARCELAS_DATA.filter(r=>r.antecipado).length), bg:'#fff7e6', border:'#ffd591', color:'#fa8c16', sub:fmt(totalAntecip)+' antecipado' },
+      { label:'Parcelas antecipadas', value:String(PARCELAS_DATA.filter(r=>r.antecipado).length), bg:'#fff7e6', border:'#ffd591', color:'#fa8c16', sub:`${[...new Set(PARCELAS_DATA.filter(r=>r.antecipado).map(r=>r.nsu))].length} operações · ${fmt(totalAntecip)}` },
       { label:'Deduções (MDR)', value:fmt(totalComissao), bg:'#fff1f0', border:'#ffa39e', color:'#ff4d4f', sub:'Comissão sub sobre EC' },
       { label:'Valor líquido total', value:fmt(totalLiquido), bg:'#f6ffed', border:'#b7eb8f', color:'#52c41a', sub:'Após deduções e antecipações' },
     ],
@@ -410,37 +443,59 @@ export default function AgendaPage() {
           {(() => {
             const parcelaColumns: ColumnType<Parcela>[] = [
               {
-                title: 'Data de pagamento', dataIndex: 'data', key: 'data', width: 140,
-                render: v => <span style={{ color:'rgba(0,0,0,0.65)', whiteSpace:'nowrap' }}>{v}<br/><span style={{ fontSize:11, color:'rgba(0,0,0,0.35)' }}>10:00</span></span>,
+                title: 'Data de crédito', dataIndex: 'data', key: 'data', width: 130,
+                render: v => <span style={{ color:'rgba(0,0,0,0.65)', whiteSpace:'nowrap' }}>{v}</span>,
               },
               {
                 title: 'NSU / Ref.', dataIndex: 'nsu', key: 'nsu', width: 130,
                 render: (v, r) => (
-                  <span style={{ display:'flex', alignItems:'center', gap:4, fontFamily:'Roboto Mono', fontSize:12, color:'rgba(0,0,0,0.65)' }}>
-                    {r.antecipado && <span style={{ width:7, height:7, borderRadius:'50%', background:'#fa8c16', display:'inline-block', flexShrink:0 }} />}
+                  <span style={{ display:'flex', alignItems:'center', gap:5, fontFamily:'Roboto Mono', fontSize:12, color:'rgba(0,0,0,0.65)' }}>
+                    {r.antecipado && (
+                      <Tooltip text="Parcela antecipada — o valor já foi creditado antecipadamente. Quando liquidada, abate o saldo devedor da operação.">
+                        <span style={{ width:7, height:7, borderRadius:'50%', background:'#fa8c16', display:'inline-block', flexShrink:0 }} />
+                      </Tooltip>
+                    )}
                     {v}
                   </span>
                 ),
+              },
+              {
+                title: 'Merchant (EC)', dataIndex: 'ec', key: 'ec', width: 160,
+                render: v => <span style={{ fontWeight:500, color:'rgba(0,0,0,0.85)', whiteSpace:'nowrap' }}>{v}</span>,
+              },
+              {
+                title: 'Adquirente', dataIndex: 'adq', key: 'adq', width: 110,
+                render: v => <BrandLogo brand={v} />,
               },
               {
                 title: 'Bandeira', dataIndex: 'bandeira', key: 'bandeira', width: 110,
                 render: v => <BrandLogo brand={v} size={20} showLabel />,
               },
               {
-                title: 'Lançamento', dataIndex: 'lancamento', key: 'lancamento',
+                title: 'Lançamento', dataIndex: 'lancamento', key: 'lancamento', width: 160,
                 render: v => <span style={{ color:'rgba(0,0,0,0.85)' }}>{v}</span>,
               },
               {
-                title: 'Origem', dataIndex: 'parcela', key: 'parcela', width: 100,
-                render: v => <span style={{ color:'rgba(0,0,0,0.65)' }}>Parcela {v}</span>,
+                title: 'Parcela', dataIndex: 'parcela', key: 'parcela', width: 80,
+                render: v => <span style={{ fontFamily:'Roboto Mono', fontSize:12, color:'rgba(0,0,0,0.65)' }}>{v}</span>,
               },
               {
-                title: 'Valor da parcela', dataIndex: 'valor', key: 'valor', width: 140,
+                title: 'Valor', dataIndex: 'valor', key: 'valor', width: 130,
                 render: v => <span style={{ color:'rgba(0,0,0,0.85)', fontWeight:500 }}>{fmt(v)}</span>,
               },
               {
-                title: 'Valor EC', dataIndex: 'comissao', key: 'comissao', width: 120,
+                title: 'MDR retido', dataIndex: 'comissao', key: 'comissao', width: 120,
                 render: v => <span style={{ color:'#f5222d', fontWeight:500 }}>{fmt(v)}</span>,
+              },
+              {
+                title: 'Antecip. tomada', dataIndex: 'antecipDescontada', key: 'antecipDescontada', width: 150,
+                render: v => v > 0
+                  ? (
+                    <Tooltip text="Valor total da operação de antecipação que cobre esta parcela. Quando liquidada, o crédito abate este saldo junto ao adquirente.">
+                      <span style={{ color:'#fa8c16', fontWeight:500 }}>{fmt(v)}</span>
+                    </Tooltip>
+                  )
+                  : <span style={{ color:'rgba(0,0,0,0.2)' }}>—</span>,
               },
               {
                 title: 'Valor líquido', dataIndex: 'liquido', key: 'liquido', width: 130,
@@ -479,7 +534,7 @@ export default function AgendaPage() {
                   <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
                     <thead>
                       <tr style={{ background:'#fafafa' }}>
-                        {['Data de Liquidação','Bandeira','Qtd Transações','Valor Bruto do Lote','Comissão Sub (EC)','Antecipação Descontada','Vlr. Líquido do Lote','Status do Lote'].map(h => (
+                        {['Data de Liquidação','Bandeira','Qtd Transações','Valor Bruto do Lote','MDR retido','Antecipação tomada','Vlr. Líquido do Lote','Status do Lote'].map(h => (
                           <th key={h} style={{ padding:'10px 14px', textAlign:'left', fontWeight:500, color:'rgba(0,0,0,0.85)', borderBottom:'1px solid #f0f0f0', whiteSpace:'nowrap', fontSize:12 }}>{h}</th>
                         ))}
                       </tr>
@@ -512,8 +567,8 @@ export default function AgendaPage() {
                                 onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background='#fafafa'}
                                 onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background='#fff'}>
                                 <td style={{ padding:'9px 14px 9px 36px', color:'rgba(0,0,0,0.45)', fontFamily:'Roboto Mono', fontSize:11 }}>{r.nsu}</td>
-                                <td />
-                                <td style={{ padding:'9px 14px', color:'rgba(0,0,0,0.65)' }}>{r.lancamento} {r.parcela}</td>
+                                <td style={{ padding:'9px 14px', fontSize:12, color:'rgba(0,0,0,0.65)', fontWeight:500 }}>{r.ec}</td>
+                                <td style={{ padding:'9px 14px', color:'rgba(0,0,0,0.65)' }}>{r.lancamento} · {r.parcela}</td>
                                 <td style={{ padding:'9px 14px', color:'rgba(0,0,0,0.85)' }}>{fmt(r.valor)}</td>
                                 <td style={{ padding:'9px 14px', color:'rgba(0,0,0,0.55)' }}>{fmt(r.comissao)}</td>
                                 <td style={{ padding:'9px 14px', color:r.antecipDescontada>0?'#fa8c16':'rgba(0,0,0,0.2)' }}>{r.antecipDescontada>0?fmt(r.antecipDescontada):'–'}</td>

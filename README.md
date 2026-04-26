@@ -70,8 +70,8 @@ pnpm storybook   # http://localhost:6006
 O componente `<DataTable>` entrega:
 
 - Card branco com `border: 1px solid rgba(0,0,0,0.06)`
-- Header com título + `borderBottom: 1px solid #f0f0f0`
-- Toolbar com busca, FilterPills, PeriodPill, Exportar e filtro avançado
+- **Title row:** título + `titleExtra` + `PeriodPill` + botão Exportar (todos na mesma linha, alinhados à direita)
+- **Toolbar** (linha separada, só aparece se necessário): busca, FilterPills, filtro avançado, `toolbarExtra`
 - Paginação PT-BR integrada
 
 ```tsx
